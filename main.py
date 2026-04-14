@@ -58,9 +58,15 @@ def set_flet_design():
             margin-bottom: 20px;
         }}
 
+        /* --- 수정한 부분: 버튼을 가운데로 정렬 --- */
+        div.stButton {{
+            display: flex;
+            justify-content: center;
+        }}
+
         /* ft.ElevatedButton(..., color="white", bgcolor="#8D6E63", height=50) 대응 */
         .stButton>button {{
-            width: 100% !important; /* 부모 너비에 맞춤 */
+            width: 350px !important; /* 너비를 좀 더 넓게 수정 (기존 100% -> 350px) */
             height: 50px !important;
             background-color: #8D6E63 !important;
             color: white !important;
