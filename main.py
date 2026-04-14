@@ -1,14 +1,36 @@
 import streamlit as st
 import time
-import requests
-import streamlit as st
 import base64
 
-# 1. 페이지 설정
-st.set_page_config(page_title="나랏말싸미", layout="centered")
+# 1. 페이지 설정 (기본적으로 넓게 설정하되, 로그인 화면에서만 CSS로 좁게 만듦)
+st.set_page_config(page_title="나랏말싸미", layout="wide")
 
-# 2. Flet 코드를 그대로 번역한 UI 디자인
-def set_flet_design():
+# Session State 초기화
+if 'page' not in st.session_state:
+    st.session_state.page = "login"
+
+if 'user_info' not in st.session_state:
+    st.session_state.user_info = {"name": "", "role": ""}
+
+if 'mock_users' not in st.session_state:
+    st.session_state.mock_users = {
+        "uid_001": {
+            "role": "학생", "school": "테스트초", "grade": "3", "class": "1", "name": "김꿈틀",
+            "scores": {"total": 420, "spelling": 100, "literacy": 90, "writing": 80, "jiphyeon": 150},
+            "ai_report": "버튼을 눌러 현재 학습 데이터를 분석해보세요."
+        },
+        "uid_002": {
+            "role": "학생", "school": "테스트초", "grade": "3", "class": "1", "name": "이새싹",
+            "scores": {"total": 350, "spelling": 80, "literacy": 85, "writing": 75, "jiphyeon": 110},
+            "ai_report": "버튼을 눌러 현재 학습 데이터를 분석해보세요."
+        }
+    }
+
+# ---------------------------------------------------------
+# 화면 1: 로그인 화면 
+# ---------------------------------------------------------
+def render_login_page():
+    # 배경 이미지 변환
     try:
         with open("bg.png", "rb") as f:
             data = f.read()
@@ -16,32 +38,27 @@ def set_flet_design():
     except FileNotFoundError:
         bin_str = ""
 
+    # 로그인 전용 CSS (배경 이미지 및 중앙 정렬 좁은 박스)
     st.markdown(
         f"""
         <style>
-        /* bg_img = ft.Image(src="bg.png", fit="cover" ...) 완벽 대응 */
         .stApp {{
             background: url("data:image/png;base64,{bin_str}");
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
         }}
-        
-        /* 상하단 기본 여백 지우기 */
         header {{ visibility: hidden; }}
         footer {{ visibility: hidden; }}
-
-        /* login_box = ft.Container(...) 완벽 대응 */
+        
         .block-container {{
-            background-color: rgba(255, 255, 255, 0.95) !important; /* bgcolor="#F2FFFFFF" */
-            padding: 40px !important;                               /* padding=40 */
-            border-radius: 20px !important;                         /* border_radius=20 */
-            max-width: 420px !important;                            /* width=420 */
-            margin-top: 10vh !important;                            /* 화면 중앙 정렬 */
+            background-color: rgba(255, 255, 255, 0.95) !important;
+            padding: 40px !important;
+            border-radius: 20px !important;
+            max-width: 420px !important;
+            margin-top: 10vh !important;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
         }}
-
-        /* ft.Text("나랏말싸미", size=50, weight="bold", color="#5D4037") 대응 */
         .title-main {{
             font-size: 50px !important;
             font-weight: bold !important;
@@ -50,8 +67,6 @@ def set_flet_design():
             margin-bottom: 0px;
             line-height: 1.2;
         }}
-        
-        /* ft.Text(":꿈틀이의 문해력 키우기", size=30...) 대응 */
         .title-sub {{
             font-size: 30px !important;
             font-weight: bold !important;
@@ -60,16 +75,12 @@ def set_flet_design():
             margin-top: 0px;
             margin-bottom: 20px;
         }}
-
-        /* --- 수정한 부분: 버튼을 가운데로 정렬 --- */
         div.stButton {{
             display: flex;
             justify-content: center;
         }}
-
-        /* ft.ElevatedButton(..., color="white", bgcolor="#8D6E63", height=50) 대응 */
         .stButton>button {{
-            width: 350px !important; /* 너비를 좀 더 넓게 수정 (기존 100% -> 350px) */
+            width: 350px !important;
             height: 50px !important;
             background-color: #8D6E63 !important;
             color: white !important;
@@ -87,21 +98,11 @@ def set_flet_design():
         unsafe_allow_html=True
     )
 
-set_flet_design()
-
-# 3. 로그인 화면 및 화면 전환 로직 (Flet과 동일한 흐름)
-if 'page' not in st.session_state:
-    st.session_state.page = "login"
-
-if st.session_state.page == "login":
-    # 텍스트 출력
+    # UI 구성
     st.markdown('<p class="title-main">나랏말싸미</p>', unsafe_allow_html=True)
     st.markdown('<p class="title-sub">:꿈틀이의 문해력 키우기</p>', unsafe_allow_html=True)
     
-    # 입력 필드 (school_field, name_field 등)
     school = st.text_input("학교명")
-    
-    # ft.Row([grade_field, class_field]) 대응
     col1, col2 = st.columns(2)
     with col1:
         grade = st.selectbox("학년", ["1", "2", "3", "4", "5", "6"])
@@ -112,10 +113,8 @@ if st.session_state.page == "login":
     pw = st.text_input("비밀번호", type="password")
     role = st.radio("역할", ["학생", "교사"], horizontal=True)
     
-    # 입장하기 버튼 (enter_app 함수 대응)
     if st.button("입장하기"):
         if not school or not name:
-            # page.snack_bar 대응
             st.error("학교명과 이름을 모두 입력해주세요.")
         else:
             st.session_state.user_info = {"name": name, "role": role}
@@ -125,50 +124,56 @@ if st.session_state.page == "login":
                 st.session_state.page = "student"
             st.rerun()
 
-# --- 화면 전환: 교사 대시보드 (show_teacher_dashboard 대응) ---
-elif st.session_state.page == "teacher":
-    st.success("👨‍🏫 교사 대시보드 화면입니다.")
-    if st.button("처음으로 돌아가기"):
-        st.session_state.page = "login"
-        st.rerun()
-
-# --- 화면 전환: 학생 대시보드 (show_student_dashboard 대응) ---
-elif st.session_state.page == "student":
-    st.success(f"👦 {st.session_state.user_info['name']} 학생 대시보드 화면입니다.")
-    if st.button("처음으로 돌아가기"):
-        st.session_state.page = "login"
-        st.rerun()
-
-def show_teacher_dashboard():
-    # --- 가상 데이터 (Firebase db.reference('users').get() 대체용) ---
-    if 'mock_users' not in st.session_state:
-        st.session_state.mock_users = {
-            "uid_001": {
-                "role": "학생", "school": "테스트초", "grade": "3", "class": "1", "name": "김꿈틀",
-                "scores": {"total": 420, "spelling": 100, "literacy": 90, "writing": 80, "jiphyeon": 150},
-                "ai_report": "버튼을 눌러 현재 학습 데이터를 분석해보세요."
-            },
-            "uid_002": {
-                "role": "학생", "school": "테스트초", "grade": "3", "class": "1", "name": "이새싹",
-                "scores": {"total": 350, "spelling": 80, "literacy": 85, "writing": 75, "jiphyeon": 110},
-                "ai_report": "버튼을 눌러 현재 학습 데이터를 분석해보세요."
-            }
-        }
-
-    # --- CSS 스타일 적용 (Flet의 아기자기한 컨테이너 색상 완벽 구현) ---
+# ---------------------------------------------------------
+# 화면 2: 교사 대시보드 화면
+# ---------------------------------------------------------
+def render_teacher_dashboard():
+    # 대시보드 전용 CSS (넓은 화면, 깔끔한 배경, 학생 카드 디자인)
     st.markdown("""
         <style>
-        .student-card { background-color: #F5F5F5; border-radius: 15px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .score-box { display: inline-block; padding: 8px 12px; border-radius: 10px; margin-right: 10px; font-weight: bold; font-size: 14px; color: #333; }
+        .stApp {
+            background: #F8F9FA !important; /* 깔끔한 배경색 */
+        }
+        .block-container {
+            max-width: 1000px !important; /* 넓은 너비 적용 */
+            background-color: transparent !important;
+            padding: 3rem 2rem !important;
+            box-shadow: none !important;
+            margin-top: 0 !important;
+        }
+        .student-card {
+            background-color: #FFFFFF;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border: 1px solid #EFEFEF;
+        }
+        .score-box {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-right: 12px;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+        }
         .bg-spelling { background-color: #FDEEF4; }
         .bg-literacy { background-color: #EBF4FA; }
         .bg-writing { background-color: #F0F9ED; }
         .bg-jiphyeon { background-color: #FFF9E5; }
-        .ai-box { margin-top: 15px; padding: 15px; background-color: white; border-radius: 10px; border-left: 5px solid #8D6E63; }
+        .ai-box {
+            margin-top: 15px;
+            padding: 20px;
+            background-color: #FAFAFA;
+            border-radius: 12px;
+            border-left: 5px solid #8D6E63;
+        }
         </style>
     """, unsafe_allow_html=True)
 
-    # --- 사이드바 메뉴 구성 ---
+    # 사이드바
     with st.sidebar:
         st.markdown("### 👨‍🏫 교사 메뉴")
         menu = st.radio(
@@ -176,20 +181,18 @@ def show_teacher_dashboard():
             ["홈", "학생 관리", "맞춤법 및 받아쓰기 관리", "문해력 관리", "글쓰기 관리", "로그아웃"]
         )
 
-    # --- 1. 홈 (첫 화면) ---
+    # 1. 홈 메뉴
     if menu == "홈":
         st.markdown('<h2>나랏말싸미 <span style="color:#8D6E63;">교사 대시보드</span>입니다.</h2>', unsafe_allow_html=True)
         st.info("👈 왼쪽 메뉴를 선택하여 학생들의 학습을 관리해주세요.")
-        
-        # 교사 정보 요약 (선택 사항)
         st.success("오늘도 아이들의 문해력을 위해 힘써주셔서 감사합니다!")
 
-    # --- 2. 학생 관리 화면 ---
+    # 2. 학생 관리 메뉴
     elif menu == "학생 관리":
         st.markdown('<h2><span style="color:#5D4037;">[학생 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
 
-        # 검색된 학생 수에 따라 반복해서 카드 생성
+        # 학생 데이터 반복 출력
         for uid, data in st.session_state.mock_users.items():
             if data['role'] == '학생':
                 scores = data.get('scores', {})
@@ -200,7 +203,6 @@ def show_teacher_dashboard():
                 zi = scores.get('jiphyeon', 0)
                 ai_report = data.get('ai_report', "")
 
-                # 카드 컨테이너 시작
                 with st.container():
                     st.markdown('<div class="student-card">', unsafe_allow_html=True)
                     
@@ -211,7 +213,7 @@ def show_teacher_dashboard():
                     with col2:
                         st.markdown(f"<h3 style='color:#C62828; margin:0;'>🏆 총점: {total}점</h3>", unsafe_allow_html=True)
                     
-                    # 세부 점수 뱃지 (HTML/CSS)
+                    # 세부 점수 뱃지
                     st.markdown(f"""
                         <div style="margin-top: 10px;">
                             <div class="score-box bg-spelling">맞춤법: {sp}</div>
@@ -227,40 +229,43 @@ def show_teacher_dashboard():
                     ai_col1, ai_col2 = st.columns([1, 4])
                     with ai_col1:
                         st.markdown("**⭐ AI 학습 능력 분석**")
-                        # Streamlit에서는 버튼의 고유 key가 필수입니다
                         if st.button("🤖 AI 분석하기", key=f"ai_btn_{uid}"):
                             with st.spinner(f"{data['name']} 학생의 데이터를 분석 중입니다..."):
-                                # 실제로는 여기에 Groq API 호출 코드가 들어갑니다.
-                                # 현재는 시뮬레이션을 위해 2초 대기 후 결과 텍스트를 업데이트합니다.
-                                time.sleep(2) 
-                                
-                                # (원래 코드의 Groq API 로직이 들어갈 자리)
+                                time.sleep(1.5) 
                                 dummy_ai_result = f"👩‍🏫 {data['name']} 학생은 맞춤법({sp}점)과 집현전 독서({zi}점)에서 아주 뛰어난 성취를 보이고 있어요! 다만 글쓰기({wr}점) 점수를 보완하기 위해 짧은 일기 쓰기부터 차근차근 지도해 주시면 더욱 완벽해질 거예요. 훌륭하게 성장 중입니다!"
-                                
-                                # 세션 스테이트(가상 DB) 업데이트
                                 st.session_state.mock_users[uid]['ai_report'] = dummy_ai_result
-                                st.rerun() # 화면 새로고침
+                                st.rerun()
 
                     with ai_col2:
                         st.write(ai_report)
                     
-                    st.markdown('</div>', unsafe_allow_html=True) # ai-box 끝
-                    st.markdown('</div>', unsafe_allow_html=True) # student-card 끝
+                    st.markdown('</div>', unsafe_allow_html=True) # ai-box 닫기
+                    st.markdown('</div>', unsafe_allow_html=True) # student-card 닫기
 
-    # --- 3. 로그아웃 처리 ---
+    # 3. 로그아웃 처리
     elif menu == "로그아웃":
         st.session_state.page = "login"
         st.rerun()
 
-    # --- 나머지 메뉴들 (임시) ---
+    # 4. 나머지 메뉴
     else:
         st.warning(f"'{menu}' 화면은 현재 공사 중입니다! 🚧")
 
+# ---------------------------------------------------------
+# 화면 3: 학생 대시보드 화면
+# ---------------------------------------------------------
+def render_student_dashboard():
+    st.success(f"👦 {st.session_state.user_info['name']} 학생 대시보드 화면입니다.")
+    if st.button("처음으로 돌아가기"):
+        st.session_state.page = "login"
+        st.rerun()
 
-# 단독 실행 테스트용 로직
-if __name__ == "__main__":
-    if 'page' not in st.session_state:
-        st.session_state.page = "teacher"
-    
-    if st.session_state.page == "teacher":
-        show_teacher_dashboard()
+# ---------------------------------------------------------
+# 메인 라우터
+# ---------------------------------------------------------
+if st.session_state.page == "login":
+    render_login_page()
+elif st.session_state.page == "teacher":
+    render_teacher_dashboard()
+elif st.session_state.page == "student":
+    render_student_dashboard()
