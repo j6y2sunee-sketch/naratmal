@@ -16,73 +16,69 @@ def set_design():
     st.markdown(
         f"""
         <style>
-        /* 전체 배경 */
+        /* 전체 배경 설정 */
         .stApp {{
             background: url("data:image/png;base64,{bin_str}");
             background-size: cover;
             background-position: center;
         }}
         
-        /* 로그인 박스 설정: 제목이 이 안에 포함됩니다 */
-        .login-container {{
-            background-color: rgba(255, 255, 255, 0.95);
-            padding: 50px;
-            border-radius: 30px;
-            border: 4px solid #5D4037;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+        /* 제목 영역: 박스 없이 배경 위에 직접 배치 */
+        .header-container {{
             text-align: center;
-            margin-top: 20px;
+            padding-top: 50px;
+            padding-bottom: 30px;
         }}
         
-        /* 메인 제목: 크기를 키우고 진한 색상 적용 */
+        /* 메인 제목: 크기를 더 키우고 흰색 테두리와 그림자로 가독성 극대화 */
         .main-title {{
-            color: #4E342E;
-            font-size: 60px !important;
+            color: #3E2723; /* 진한 밤색 */
+            font-size: 80px !important;
             font-weight: 900;
             margin-bottom: 0px;
-            line-height: 1.2;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+            text-shadow: 3px 3px 0px #FFFFFF, 5px 5px 15px rgba(0,0,0,0.3);
+            line-height: 1.1;
         }}
         
         /* 부제목 */
         .sub-title {{
             color: #5D4037;
-            font-size: 28px !important;
+            font-size: 35px !important;
             font-weight: bold;
-            margin-bottom: 30px;
+            margin-top: 10px;
+            text-shadow: 2px 2px 0px #FFFFFF;
         }}
         
-        /* 입력창 라벨 (학교, 이름 등) 글자 크기 및 색상 */
+        /* 입력창 영역만 하얀색 반투명 박스로 감싸기 */
+        .login-input-box {{
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            border: 2px solid #5D4037;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            margin-top: 20px;
+        }}
+        
+        /* 라벨 및 버튼 스타일 강화 */
         .stTextInput label, .stSelectbox label, .stRadio label {{
-            font-size: 22px !important;
+            font-size: 20px !important;
             color: #3E2723 !important;
             font-weight: bold !important;
         }}
         
-        /* 입력창 내부 글자 크기 */
-        input {{
-            font-size: 20px !important;
-        }}
-        
-        /* 버튼: 더 크고 눈에 띄게 */
         .stButton>button {{
             width: 100%;
             background-color: #5D4037 !important;
-            color: #FFFFFF !important;
-            border-radius: 15px;
-            height: 65px;
-            font-size: 26px !important;
+            color: white !important;
+            border-radius: 12px;
+            height: 60px;
+            font-size: 24px !important;
             font-weight: bold;
-            margin-top: 20px;
             border: none;
-            transition: 0.3s;
+            margin-top: 20px;
         }}
-        .stButton>button:hover {{
-            background-color: #3E2723 !important;
-            transform: scale(1.02);
-        }}
-
-        /* 하단 여백 제거 */
+        
+        /* 상단 메뉴바 제거 */
         #MainMenu, footer {{visibility: hidden;}}
         </style>
         """,
@@ -96,17 +92,15 @@ if 'page' not in st.session_state:
     st.session_state.page = "login"
 
 if st.session_state.page == "login":
-    # 화면 중앙 정렬을 위한 여백
-    st.write("<br>", unsafe_allow_html=True)
-    
-    # 로그인 박스 시작
-    st.markdown('<div class="login-container">', unsafe_allow_html=True)
-    
-    # 박스 내부에 제목을 직접 배치하여 흰 박스 밖으로 나가지 않게 함
+    # 1) 제목 영역 (박스 밖 상단)
+    st.markdown('<div class="header-container">', unsafe_allow_html=True)
     st.markdown('<p class="main-title">나랏말싸미</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">: 꿈틀이의 문해력 키우기</p>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    # 입력 필드
+    # 2) 입력 영역 (반투명 박스)
+    st.markdown('<div class="login-input-box">', unsafe_allow_html=True)
+    
     school = st.text_input("🏠 학교명")
     
     col1, col2 = st.columns(2)
@@ -120,8 +114,7 @@ if st.session_state.page == "login":
     
     role = st.radio("🏷️ 역할 선택", ["학생", "교사"], horizontal=True)
     
-    # 입장 버튼
-    if st.button("입장하기"):
+    if st.button("집현전 입장하기"):
         if school and name and pw:
             st.session_state.user_info = {"name": name, "role": role}
             st.session_state.page = "main"
@@ -131,7 +124,7 @@ if st.session_state.page == "login":
             
     st.markdown('</div>', unsafe_allow_html=True)
 
-# 4. 메인 화면 (임시)
+# 4. 메인 화면
 elif st.session_state.page == "main":
     st.success(f"{st.session_state.user_info['name']}님, 환영합니다!")
     if st.button("로그아웃"):
