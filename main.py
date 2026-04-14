@@ -200,63 +200,56 @@ def render_teacher_dashboard():
         st.info("👈 왼쪽 메뉴를 선택하여 학생들의 학습을 관리해주세요.")
         st.success("오늘도 아이들의 문해력을 위해 힘써주셔서 감사합니다!")
 
-# 2. 학생 관리 메뉴 (1단 기본 레이아웃, 복잡한 박스 제거)
-    elif menu == "학생 관리":
-        st.markdown('<h2><span style="color:#5D4037;">[학생 관리]</span></h2>', unsafe_allow_html=True)
-        st.divider()
+# 학생 데이터 반복 출력 (1단)
+        for uid, data in students.items():
+            scores = data.get('scores', {})
+            total = scores.get('total', 0)
+            sp = scores.get('spelling', 0)
+            li = scores.get('literacy', 0)
+            wr = scores.get('writing', 0)
+            zi = scores.get('jiphyeon', 0)
+            ai_report = data.get('ai_report', "버튼을 눌러 현재 학습 데이터를 분석해보세요.")
 
-        # 학생 데이터 반복 출력 (1단)
-        for uid, data in st.session_state.mock_users.items():
-            if data['role'] == '학생':
-                scores = data.get('scores', {})
-                total = scores.get('total', 0)
-                sp = scores.get('spelling', 0)
-                li = scores.get('literacy', 0)
-                wr = scores.get('writing', 0)
-                zi = scores.get('jiphyeon', 0)
-                ai_report = data.get('ai_report', "")
+            with st.container():
+                # [수정] 에러를 일으키던 빈 HTML 박스(<div class="student-card">) 코드 완전 삭제
+                
+                # 이름 및 총점
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    st.markdown(f"### 👤 {data['name']}")
+                with col2:
+                    st.markdown(f"<h3 style='color:#C62828; text-align:right; margin:0;'>🏆 총점: {total}점</h3>", unsafe_allow_html=True)
+                
+                # 세부 점수 뱃지 (이 부분은 CSS 클래스가 적용된 HTML 스팬이라 문제없음)
+                st.markdown(f"""
+                    <div style="margin-top: 10px; margin-bottom: 20px;">
+                        <span class="score-box bg-spelling">맞춤법: {sp}</span>
+                        <span class="score-box bg-literacy">문해력: {li}</span>
+                        <span class="score-box bg-writing">글쓰기: {wr}</span>
+                        <span class="score-box bg-jiphyeon">집현전: {zi}</span>
+                    </div>
+                """, unsafe_allow_html=True)
 
-                # 전체 카드 테두리만 유지
-                with st.container():
-                    st.markdown('<div class="student-card">', unsafe_allow_html=True)
-                    
-                    # [수정] 1. 이름 및 총점 (복잡한 박스 제거, 깔끔한 텍스트 배치)
-                    col1, col2 = st.columns([1, 1])
-                    with col1:
-                        st.markdown(f"### 👤 {data['name']}")
-                    with col2:
-                        st.markdown(f"<h3 style='color:#C62828; text-align:right; margin:0;'>🏆 총점: {total}점</h3>", unsafe_allow_html=True)
-                    
-                    # 세부 점수 뱃지
-                    st.markdown(f"""
-                        <div style="margin-top: 10px; margin-bottom: 20px;">
-                            <span class="score-box bg-spelling">맞춤법: {sp}</span>
-                            <span class="score-box bg-literacy">문해력: {li}</span>
-                            <span class="score-box bg-writing">글쓰기: {wr}</span>
-                            <span class="score-box bg-jiphyeon">집현전: {zi}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
+                # AI 분석 영역
+                st.markdown("**⭐ AI 학습 능력 분석**")
+                
+                ai_col1, ai_col2 = st.columns([1, 4])
+                with ai_col1:
+                    if st.button("🤖 AI 분석하기", key=f"ai_btn_{uid}"):
+                        with st.spinner(f"{data['name']} 학생의 데이터를 분석 중입니다..."):
+                            time.sleep(1.5) 
+                            dummy_ai_result = f"👩‍🏫 {data['name']} 학생은 맞춤법({sp}점)과 집현전 독서({zi}점)에서 아주 뛰어난 성취를 보이고 있어요! 다만 글쓰기({wr}점) 점수를 보완하기 위해 짧은 일기 쓰기부터 차근차근 지도해 주시면 더욱 완벽해질 거예요. 훌륭하게 성장 중입니다!"
+                            st.session_state.mock_users[uid]['ai_report'] = dummy_ai_result
+                            st.rerun()
 
-                    # [수정] 2. AI 분석 영역 (고정된 박스 제거, Streamlit 기본 UI 사용)
-                    st.markdown("**⭐ AI 학습 능력 분석**")
-                    
-                    ai_col1, ai_col2 = st.columns([1, 4])
-                    with ai_col1:
-                        if st.button("🤖 AI 분석하기", key=f"ai_btn_{uid}"):
-                            with st.spinner(f"{data['name']} 학생의 데이터를 분석 중입니다..."):
-                                time.sleep(1.5) 
-                                dummy_ai_result = f"👩‍🏫 {data['name']} 학생은 맞춤법({sp}점)과 집현전 독서({zi}점)에서 아주 뛰어난 성취를 보이고 있어요! 다만 글쓰기({wr}점) 점수를 보완하기 위해 짧은 일기 쓰기부터 차근차근 지도해 주시면 더욱 완벽해질 거예요. 훌륭하게 성장 중입니다!"
-                                st.session_state.mock_users[uid]['ai_report'] = dummy_ai_result
-                                st.rerun()
-
-                    with ai_col2:
-                        # 텍스트가 잘리지 않도록 Streamlit 기본 제공 info 박스 사용
-                        if ai_report == "버튼을 눌러 현재 학습 데이터를 분석해보세요.":
-                            st.write(ai_report)
-                        else:
-                            st.info(ai_report)
-                    
-                    st.markdown('</div>', unsafe_allow_html=True) # student-card 닫기
+                with ai_col2:
+                    if ai_report == "버튼을 눌러 현재 학습 데이터를 분석해보세요.":
+                        st.write(ai_report)
+                    else:
+                        st.info(ai_report)
+                
+                # [수정] 학생 정보가 하나 끝날 때마다 가로 구분선 추가
+                st.divider()
 
 # ---------------------------------------------------------
 # 화면 3: 학생 대시보드 화면
