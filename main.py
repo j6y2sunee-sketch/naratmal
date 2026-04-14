@@ -1,11 +1,11 @@
 import streamlit as st
 import base64
 
-# 1. 페이지 기본 설정 (가운데 정렬)
+# 1. 페이지 설정
 st.set_page_config(page_title="나랏말싸미", layout="centered")
 
-# 2. UI 디자인 (사진과 똑같은 화이트 카드 디자인)
-def set_design():
+# 2. Flet 코드를 그대로 번역한 UI 디자인
+def set_flet_design():
     try:
         with open("bg.png", "rb") as f:
             data = f.read()
@@ -16,7 +16,7 @@ def set_design():
     st.markdown(
         f"""
         <style>
-        /* 1. 전체 화면 배경에 이미지 깔기 */
+        /* bg_img = ft.Image(src="bg.png", fit="cover" ...) 완벽 대응 */
         .stApp {{
             background: url("data:image/png;base64,{bin_str}");
             background-size: cover;
@@ -24,113 +24,108 @@ def set_design():
             background-attachment: fixed;
         }}
         
-        /* 상단 메뉴바 숨기기 */
+        /* 상하단 기본 여백 지우기 */
         header {{ visibility: hidden; }}
         footer {{ visibility: hidden; }}
 
-        /* 2. 핵심! Streamlit 메인 화면 자체를 '하얀색 카드'로 만들기 */
+        /* login_box = ft.Container(...) 완벽 대응 */
         .block-container {{
-            background-color: rgba(255, 255, 255, 0.95) !important; /* 95% 불투명한 흰색 */
-            padding: 3rem 4rem 4rem 4rem !important; /* 안쪽 여백 넉넉히 */
-            border-radius: 25px !important; /* 둥근 모서리 */
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important; /* 부드러운 그림자 */
-            max-width: 650px !important; /* 카드 가로 길이 고정 */
-            margin-top: 8vh !important; /* 화면 위에서 살짝 띄우기 */
-            border: 2px solid #EFEBE9 !important; /* 연한 테두리 */
+            background-color: rgba(255, 255, 255, 0.95) !important; /* bgcolor="#F2FFFFFF" */
+            padding: 40px !important;                               /* padding=40 */
+            border-radius: 20px !important;                         /* border_radius=20 */
+            max-width: 420px !important;                            /* width=420 */
+            margin-top: 10vh !important;                            /* 화면 중앙 정렬 */
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
         }}
 
-        /* 3. 제목 가운데 정렬 및 세련된 폰트 */
-        h1 {{
-            color: #4E342E !important; /* 짙은 갈색 */
-            text-align: center !important;
-            font-size: 3.5rem !important;
-            font-weight: 900 !important;
-            margin-bottom: 0px !important;
-            padding-bottom: 0px !important;
-        }}
-        h3 {{
-            color: #6D4C41 !important; /* 조금 연한 갈색 */
-            text-align: center !important;
-            font-size: 1.5rem !important;
+        /* ft.Text("나랏말싸미", size=50, weight="bold", color="#5D4037") 대응 */
+        .title-main {{
+            font-size: 50px !important;
             font-weight: bold !important;
-            margin-top: 5px !important;
-            margin-bottom: 30px !important;
+            color: #5D4037 !important;
+            text-align: center;
+            margin-bottom: 0px;
+            line-height: 1.2;
         }}
-
-        /* 4. 입력창 라벨(학교명, 학년 등) 스타일 */
-        .stTextInput label p, .stSelectbox label p, .stRadio label p {{
-            font-size: 1.5rem !important;
-            color: #4E342E !important;
+        
+        /* ft.Text(":꿈틀이의 문해력 키우기", size=30...) 대응 */
+        .title-sub {{
+            font-size: 30px !important;
             font-weight: bold !important;
+            color: #5D4037 !important;
+            text-align: center;
+            margin-top: 0px;
+            margin-bottom: 20px;
         }}
 
-        /* 5. 입력창(글씨 쓰는 곳) 디자인 */
-        .stTextInput input, .stSelectbox div[data-baseweb="select"] {{
-            border-radius: 10px !important;
-            border: 1.5px solid #D7CCC8 !important;
-            font-size: 1.5rem !important;
-            height: 3rem !important; /* 적당한 높이 */
-            background-color: #FAFAFA !important;
-        }}
-
-        /* 6. 입장하기 버튼 세련되게! */
+        /* ft.ElevatedButton(..., color="white", bgcolor="#8D6E63", height=50) 대응 */
         .stButton>button {{
-            width: 100% !important;
-            background-color: #6D4C41 !important; /* 갈색 버튼 */
+            width: 100% !important; /* 부모 너비에 맞춤 */
+            height: 50px !important;
+            background-color: #8D6E63 !important;
             color: white !important;
-            font-size: 1.4rem !important;
+            border-radius: 8px !important;
+            font-size: 18px !important;
             font-weight: bold !important;
-            border-radius: 12px !important;
-            height: 3.5rem !important;
             border: none !important;
-            margin-top: 15px !important;
-            transition: 0.2s;
+            margin-top: 20px !important;
         }}
         .stButton>button:hover {{
-            background-color: #4E342E !important; /* 마우스 올리면 더 진해짐 */
+            background-color: #5D4037 !important;
         }}
         </style>
         """,
         unsafe_allow_html=True
     )
 
-set_design()
+set_flet_design()
 
-# 3. 화면 구성 시작 (Streamlit의 기본 방식만 사용)
+# 3. 로그인 화면 및 화면 전환 로직 (Flet과 동일한 흐름)
 if 'page' not in st.session_state:
     st.session_state.page = "login"
 
 if st.session_state.page == "login":
-    # 제목 넣기
-    st.markdown("<h1>나랏말싸미</h1>", unsafe_allow_html=True)
-    st.markdown("<h3>: 꿈틀이의 문해력 키우기</h3>", unsafe_allow_html=True)
-
-    # 입력창 넣기
+    # 텍스트 출력
+    st.markdown('<p class="title-main">나랏말싸미</p>', unsafe_allow_html=True)
+    st.markdown('<p class="title-sub">:꿈틀이의 문해력 키우기</p>', unsafe_allow_html=True)
+    
+    # 입력 필드 (school_field, name_field 등)
     school = st.text_input("학교명")
     
+    # ft.Row([grade_field, class_field]) 대응
     col1, col2 = st.columns(2)
     with col1:
-        grade = st.selectbox("학년", [str(i) for i in range(1, 7)])
+        grade = st.selectbox("학년", ["1", "2", "3", "4", "5", "6"])
     with col2:
         classroom = st.text_input("반")
         
     name = st.text_input("이름")
     pw = st.text_input("비밀번호", type="password")
+    role = st.radio("역할", ["학생", "교사"], horizontal=True)
     
-    role = st.radio("역할 선택", ["학생", "교사"], horizontal=True)
-
-    # 버튼
+    # 입장하기 버튼 (enter_app 함수 대응)
     if st.button("입장하기"):
-        if school and name and pw:
-            st.session_state.user_info = {"name": name, "role": role}
-            st.session_state.page = "main"
-            st.rerun()
+        if not school or not name:
+            # page.snack_bar 대응
+            st.error("학교명과 이름을 모두 입력해주세요.")
         else:
-            st.error("정보를 모두 입력해 주세요!")
+            st.session_state.user_info = {"name": name, "role": role}
+            if role == "교사":
+                st.session_state.page = "teacher"
+            else:
+                st.session_state.page = "student"
+            st.rerun()
 
-# 4. 로그인 성공 후 임시 메인 화면
-elif st.session_state.page == "main":
-    st.success(f"{st.session_state.user_info['name']}님, 환영합니다!")
-    if st.button("로그아웃"):
+# --- 화면 전환: 교사 대시보드 (show_teacher_dashboard 대응) ---
+elif st.session_state.page == "teacher":
+    st.success("👨‍🏫 교사 대시보드 화면입니다.")
+    if st.button("처음으로 돌아가기"):
+        st.session_state.page = "login"
+        st.rerun()
+
+# --- 화면 전환: 학생 대시보드 (show_student_dashboard 대응) ---
+elif st.session_state.page == "student":
+    st.success(f"👦 {st.session_state.user_info['name']} 학생 대시보드 화면입니다.")
+    if st.button("처음으로 돌아가기"):
         st.session_state.page = "login"
         st.rerun()
