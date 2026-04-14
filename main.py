@@ -131,7 +131,52 @@ def render_login_page():
 # ---------------------------------------------------------
 # 화면 2: 교사 대시보드 화면
 # ---------------------------------------------------------
-# 2. 학생 관리 메뉴 (빈 박스 제거 및 구분선 추가)
+def render_teacher_dashboard():
+    # 대시보드 전용 CSS (에러나던 불필요한 박스 CSS는 모두 제거, 뱃지 스타일만 남김)
+    st.markdown("""
+        <style>
+        .stApp {
+            background: #F8F9FA !important;
+        }
+        .block-container {
+            max-width: 1000px !important;
+            background-color: transparent !important;
+            padding: 3rem 2rem !important;
+            box-shadow: none !important;
+            margin-top: 0 !important;
+        }
+        .score-box {
+            display: inline-block;
+            padding: 6px 14px;
+            border-radius: 15px;
+            margin-right: 10px;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 14px;
+            color: #333;
+        }
+        .bg-spelling { background-color: #FDEEF4; }
+        .bg-literacy { background-color: #EBF4FA; }
+        .bg-writing { background-color: #F0F9ED; }
+        .bg-jiphyeon { background-color: #FFF9E5; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    with st.sidebar:
+        st.markdown("### 👨‍🏫 교사 메뉴")
+        menu = st.radio(
+            "이동할 메뉴를 선택하세요",
+            ["홈", "학생 관리", "맞춤법 및 받아쓰기 관리", "문해력 관리", "글쓰기 관리", "로그아웃"],
+            index=1 # 기본 화면을 '학생 관리'로 설정
+        )
+
+    # 1. 홈 메뉴
+    if menu == "홈":
+        st.markdown('<h2>나랏말싸미 <span style="color:#8D6E63;">교사 대시보드</span>입니다.</h2>', unsafe_allow_html=True)
+        st.info("👈 왼쪽 메뉴를 선택하여 학생들의 학습을 관리해주세요.")
+        st.success("오늘도 아이들의 문해력을 위해 힘써주셔서 감사합니다!")
+
+    # 2. 학생 관리 메뉴 (1단, 빈 박스 제거, 구분선 추가)
     elif menu == "학생 관리":
         st.markdown('<h2><span style="color:#5D4037;">[학생 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -139,7 +184,6 @@ def render_login_page():
         # 학생 데이터만 필터링
         students = {uid: data for uid, data in st.session_state.mock_users.items() if data['role'] == '학생'}
         
-        # 학생 데이터 반복 출력 (1단)
         for uid, data in students.items():
             scores = data.get('scores', {})
             total = scores.get('total', 0)
@@ -150,8 +194,6 @@ def render_login_page():
             ai_report = data.get('ai_report', "버튼을 눌러 현재 학습 데이터를 분석해보세요.")
 
             with st.container():
-                # [수정] 에러를 일으키던 빈 HTML 박스(<div class="student-card">) 코드 완전 삭제
-                
                 # 이름 및 총점
                 col1, col2 = st.columns([1, 1])
                 with col1:
@@ -159,7 +201,7 @@ def render_login_page():
                 with col2:
                     st.markdown(f"<h3 style='color:#C62828; text-align:right; margin:0;'>🏆 총점: {total}점</h3>", unsafe_allow_html=True)
                 
-                # 세부 점수 뱃지 (이 부분은 CSS 클래스가 적용된 HTML 스팬이라 문제없음)
+                # 세부 점수 뱃지 출력
                 st.markdown(f"""
                     <div style="margin-top: 10px; margin-bottom: 20px;">
                         <span class="score-box bg-spelling">맞춤법: {sp}</span>
@@ -186,11 +228,19 @@ def render_login_page():
                         st.write(ai_report)
                     else:
                         st.info(ai_report)
-                
-                # [수정] 학생 정보가 하나 끝날 때마다 가로 구분선 추가
-                st.divider()
-                    
-                    st.markdown('</div>', unsafe_allow_html=True) # student-card 닫기
+            
+            # 한 학생의 정보가 끝날 때마다 구분선 추가
+            st.divider()
+
+    # 3. 로그아웃 처리
+    elif menu == "로그아웃":
+        st.session_state.page = "login"
+        st.rerun()
+
+    # 4. 나머지 메뉴
+    else:
+        st.warning(f"'{menu}' 화면은 현재 공사 중입니다! 🚧")
+
 # ---------------------------------------------------------
 # 화면 3: 학생 대시보드 화면
 # ---------------------------------------------------------
