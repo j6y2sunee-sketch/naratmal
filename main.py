@@ -1,4 +1,41 @@
 import streamlit as st
+import base64
+
+# 배경 이미지를 불러와서 화면 전체에 깔아주는 함수
+def set_bg_hack(main_bg):
+    # 이미지를 웹에서 읽을 수 있는 형태로 변환합니다.
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background: url("data:image/png;base64,{main_bg}");
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+        }}
+        /* 로그인 박스가 배경 위에서 잘 보이도록 반투명 흰색 배경 추가 */
+        [data-testid="stVerticalBlock"] > div:has(div.stForm) {{
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+# GitHub에 올린 bg.png 파일을 읽어오는 로직
+# (파일명이 다르면 'bg.png' 부분을 수정해 주세요)
+try:
+    with open("bg.png", "rb") as f:
+        data = f.read()
+        bin_str = base64.b64encode(data).decode()
+        set_bg_hack(bin_str)
+except FileNotFoundError:
+    st.warning("배경 이미지 파일(bg.png)을 찾을 수 없습니다. GitHub에 파일을 올렸는지 확인해 주세요!")
+
+# --- 이후에 로그인 화면/본문 코드 작성 ---
 
 # 1. 화면 기본 설정
 st.set_page_config(page_title="나랏말싸미", layout="wide")
@@ -55,4 +92,3 @@ elif st.session_state.page == "home":
         st.session_state.page = "login"
         st.rerun()
 
-st.image("bg.png", caption="배경화면")
