@@ -1,0 +1,56 @@
+import streamlit as st
+
+# 1. 화면 기본 설정
+st.set_page_config(page_title="나랏말싸미", layout="wide")
+
+# 2. 배경색 및 디자인 (집현전 느낌)
+st.markdown("""
+    <style>
+    .stApp { background-color: #fdf5e6; }
+    .main-title { color: #8b4513; text-align: center; font-size: 3rem; font-weight: bold; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# 3. 데이터 저장소 (세션 상태)
+if 'page' not in st.session_state:
+    st.session_state.page = "login"
+
+# --- 화면 1: 로그인 ---
+if st.session_state.page == "login":
+    st.markdown("<p class='main-title'>🏯 나랏말싸미</p>", unsafe_allow_html=True)
+    st.subheader("꿈틀이의 문해력 키우기")
+    
+    with st.container():
+        name = st.text_input("이름을 입력하세요")
+        pw = st.text_input("비밀번호", type="password")
+        role = st.selectbox("역할", ["학생", "교사"])
+        
+        if st.button("집현전 입장하기"):
+            if name:
+                st.session_state.user_name = name
+                st.session_state.role = role
+                st.session_state.page = "home"
+                st.rerun()
+
+# --- 화면 2: 메인 홈 ---
+elif st.session_state.page == "home":
+    st.sidebar.title(f"🌳 {st.session_state.user_name}님")
+    menu = st.sidebar.radio("메뉴", ["학습 현황", "맞춤법 연습", "문해력 연습", "상점", "로그아웃"])
+    
+    if menu == "학습 현황":
+        st.header("📊 나의 학습 리포트")
+        st.write("반갑습니다! 오늘 최고의 꿈틀이가 되어보세요.")
+        st.info("현재 점수: 0점 | 레벨: 1단계 새싹")
+        
+    elif menu == "맞춤법 연습":
+        st.header("✍️ 맞춤법 및 받아쓰기")
+        q = st.radio("다음 중 올바른 표기는?", ["어의없다", "어이없다"])
+        if st.button("채점하기"):
+            if q == "어이없다":
+                st.success("정답입니다! 점수가 추가되었습니다.")
+            else:
+                st.error("다시 한번 생각해볼까요?")
+
+    elif menu == "로그아웃":
+        st.session_state.page = "login"
+        st.rerun()
