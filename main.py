@@ -54,3 +54,5 @@ elif st.session_state.page == "home":
     elif menu == "로그아웃":
         st.session_state.page = "login"
         st.rerun()
+
+st.image("bg.png", caption="배경화면")
