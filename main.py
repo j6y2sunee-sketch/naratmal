@@ -2,7 +2,7 @@ import streamlit as st
 import time
 import base64
 
-# 1. 페이지 설정 (기본적으로 넓게 설정하되, 로그인 화면에서만 CSS로 좁게 만듦)
+# 1. 페이지 설정 (기본적으로 넓게 설정)
 st.set_page_config(page_title="나랏말싸미", layout="wide")
 
 # Session State 초기화
@@ -38,7 +38,7 @@ def render_login_page():
     except FileNotFoundError:
         bin_str = ""
 
-    # 로그인 전용 CSS (배경 이미지 및 중앙 정렬 좁은 박스)
+    # 로그인 전용 CSS
     st.markdown(
         f"""
         <style>
@@ -98,7 +98,6 @@ def render_login_page():
         unsafe_allow_html=True
     )
 
-    # UI 구성
     st.markdown('<p class="title-main">나랏말싸미</p>', unsafe_allow_html=True)
     st.markdown('<p class="title-sub">:꿈틀이의 문해력 키우기</p>', unsafe_allow_html=True)
     
@@ -128,14 +127,14 @@ def render_login_page():
 # 화면 2: 교사 대시보드 화면
 # ---------------------------------------------------------
 def render_teacher_dashboard():
-    # 대시보드 전용 CSS (넓은 화면, 깔끔한 배경, 학생 카드 디자인)
+    # 대시보드 전용 CSS (넓은 화면, 학생 관리 카드 스타일)
     st.markdown("""
         <style>
         .stApp {
-            background: #F8F9FA !important; /* 깔끔한 배경색 */
+            background: #F8F9FA !important;
         }
         .block-container {
-            max-width: 1000px !important; /* 넓은 너비 적용 */
+            max-width: 1000px !important;
             background-color: transparent !important;
             padding: 3rem 2rem !important;
             box-shadow: none !important;
@@ -148,6 +147,14 @@ def render_teacher_dashboard():
             margin-bottom: 25px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.05);
             border: 1px solid #EFEFEF;
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #F5F5F5;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
         }
         .score-box {
             display: inline-block;
@@ -173,12 +180,13 @@ def render_teacher_dashboard():
         </style>
     """, unsafe_allow_html=True)
 
-    # 사이드바
+    # 사이드바 설정 (index=1로 설정하여 '학생 관리'가 기본으로 선택되게 함)
     with st.sidebar:
         st.markdown("### 👨‍🏫 교사 메뉴")
         menu = st.radio(
             "이동할 메뉴를 선택하세요",
-            ["홈", "학생 관리", "맞춤법 및 받아쓰기 관리", "문해력 관리", "글쓰기 관리", "로그아웃"]
+            ["홈", "학생 관리", "맞춤법 및 받아쓰기 관리", "문해력 관리", "글쓰기 관리", "로그아웃"],
+            index=1 # 0: 홈, 1: 학생 관리 -> 로그인 시 바로 학생 관리가 보입니다!
         )
 
     # 1. 홈 메뉴
@@ -187,7 +195,7 @@ def render_teacher_dashboard():
         st.info("👈 왼쪽 메뉴를 선택하여 학생들의 학습을 관리해주세요.")
         st.success("오늘도 아이들의 문해력을 위해 힘써주셔서 감사합니다!")
 
-    # 2. 학생 관리 메뉴
+    # 2. 학생 관리 메뉴 (두 번째 이미지 화면)
     elif menu == "학생 관리":
         st.markdown('<h2><span style="color:#5D4037;">[학생 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -206,16 +214,17 @@ def render_teacher_dashboard():
                 with st.container():
                     st.markdown('<div class="student-card">', unsafe_allow_html=True)
                     
-                    # 이름 및 총점
-                    col1, col2 = st.columns([1, 4])
-                    with col1:
-                        st.markdown(f"### 👤 {data['name']}")
-                    with col2:
-                        st.markdown(f"<h3 style='color:#C62828; margin:0;'>🏆 총점: {total}점</h3>", unsafe_allow_html=True)
+                    # 이름 및 총점 (양쪽 정렬)
+                    st.markdown(f"""
+                        <div class="card-header">
+                            <h3 style="margin: 0;">👤 {data['name']}</h3>
+                            <h3 style="margin: 0; color: #C62828;">🏆 총점: {total}점</h3>
+                        </div>
+                    """, unsafe_allow_html=True)
                     
                     # 세부 점수 뱃지
                     st.markdown(f"""
-                        <div style="margin-top: 10px;">
+                        <div style="margin-bottom: 10px;">
                             <div class="score-box bg-spelling">맞춤법: {sp}</div>
                             <div class="score-box bg-literacy">문해력: {li}</div>
                             <div class="score-box bg-writing">글쓰기: {wr}</div>
@@ -226,7 +235,7 @@ def render_teacher_dashboard():
                     # AI 분석 영역
                     st.markdown('<div class="ai-box">', unsafe_allow_html=True)
                     
-                    ai_col1, ai_col2 = st.columns([1, 4])
+                    ai_col1, ai_col2 = st.columns([1.5, 3.5])
                     with ai_col1:
                         st.markdown("**⭐ AI 학습 능력 분석**")
                         if st.button("🤖 AI 분석하기", key=f"ai_btn_{uid}"):
