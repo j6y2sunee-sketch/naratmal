@@ -211,7 +211,8 @@ def render_teacher_dashboard():
                         st.info(report_text)
             
             st.divider() # 학생 사이의 구분선
-# -----------------------------------------------------------------
+
+    # -----------------------------------------------------------------
     # 맞춤법 및 받아쓰기 관리 메뉴
     # -----------------------------------------------------------------
     elif menu == "맞춤법 및 받아쓰기 관리":
@@ -225,7 +226,7 @@ def render_teacher_dashboard():
                 st.markdown("<div style='text-align:center; padding:30px; background:#F5F5F5; border-radius:20px;'>", unsafe_allow_html=True)
                 st.markdown("<h1 style='font-size:50px;'>🤖</h1>", unsafe_allow_html=True)
                 st.markdown("<h3>AI 자동 출제</h3>", unsafe_allow_html=True)
-                ai_grade = st.selectbox("학년 수준", [f"{i}학년" for i in range(1, 7)], index=2)
+                ai_grade = st.selectbox("학년 수준", [f"{i}학년" for i in range(1, 7)], index=2, key="ai_grade_select")
                 if st.button("AI 출제 시작", use_container_width=True):
                     st.session_state.ai_grade = ai_grade
                     st.session_state.spelling_subpage = "ai_loading"
@@ -261,15 +262,19 @@ def render_teacher_dashboard():
                         st.rerun()
                     else:
                         st.error("API 응답 구조 오류")
-                        if st.button("돌아가기"): st.session_state.spelling_subpage = "menu"; st.rerun()
+                        if st.button("돌아가기", key="btn_back_err"): 
+                            st.session_state.spelling_subpage = "menu"
+                            st.rerun()
                 except Exception as e:
                     st.error(f"생성 중 오류 발생: {e}")
-                    if st.button("돌아가기"): st.session_state.spelling_subpage = "menu"; st.rerun()
+                    if st.button("돌아가기", key="btn_back_err2"): 
+                        st.session_state.spelling_subpage = "menu"
+                        st.rerun()
 
         # 3. 문제 확인 및 편집 화면 (AI 및 수동 공통)
         elif st.session_state.spelling_subpage in ["ai_edit", "manual"]:
             st.markdown(f"### {'📝 AI 생성 문제 확인 및 수정' if st.session_state.spelling_subpage == 'ai_edit' else '✍️ [교사 직접 출제]'}")
-            if st.button("⬅️ 뒤로가기"):
+            if st.button("⬅️ 뒤로가기", key="btn_back_edit"):
                 st.session_state.spelling_subpage = "menu"
                 st.rerun()
             
@@ -282,9 +287,15 @@ def render_teacher_dashboard():
             # 문제 목록 출력
             for i, prob in enumerate(st.session_state.spelling_problems):
                 c1, c2, c3, c4, c5 = st.columns([1, 4, 3, 1, 1])
-                with c1: st.write(f"**{i+1}번**")
-                with c2: st.session_state.spelling_problems[i]["audio"] = st.text_input(f"문제 문장 (소리) {i}", value=prob.get("audio", ""), label_visibility="collapsed")
-                with c3: st.session_state.spelling_problems[i]["answer"] = st.text_input(f"정답 {i}", value=prob.get("answer", ""), label_visibility="collapsed")
+                with c1: 
+                    st.write(f"**{i+1}번**")
+                with c2: 
+                    # Streamlit 경고를 막기 위해 key를 지정하고 값을 안전하게 할당
+                    audio_val = st.text_input(f"문제 문장 (소리) {i}", value=prob.get("audio", ""), key=f"audio_input_{i}", label_visibility="collapsed")
+                    st.session_state.spelling_problems[i]["audio"] = audio_val
+                with c3: 
+                    answer_val = st.text_input(f"정답 {i}", value=prob.get("answer", ""), key=f"answer_input_{i}", label_visibility="collapsed")
+                    st.session_state.spelling_problems[i]["answer"] = answer_val
                 with c4: 
                     if st.button("🔊 듣기", key=f"listen_{i}"):
                         audio_to_play = st.session_state.spelling_problems[i]["audio"]
@@ -302,7 +313,7 @@ def render_teacher_dashboard():
                 st.session_state.spelling_problems.pop(to_delete)
                 st.rerun()
                 
-            if st.button("➕ 문제 추가"):
+            if st.button("➕ 문제 추가", key="btn_add_prob"):
                 st.session_state.spelling_problems.append({"audio": "", "answer": ""})
                 st.rerun()
                 
@@ -312,15 +323,15 @@ def render_teacher_dashboard():
             action_col1, action_col2, action_col3 = st.columns([1, 1, 1])
             with action_col1:
                 if st.session_state.spelling_subpage == "ai_edit":
-                    if st.button("🔄 다시 생성", use_container_width=True):
+                    if st.button("🔄 다시 생성", use_container_width=True, key="btn_regen"):
                         st.session_state.spelling_subpage = "ai_loading"
                         st.rerun()
             with action_col2:
                 # 메모장 저장 대신 파일 다운로드 버튼 제공
                 txt_content = "\n".join([f"{i+1}. 문장: {p['audio']} / 정답: {p['answer']}" for i, p in enumerate(st.session_state.spelling_problems)])
-                st.download_button(label="💾 PC에 저장(TXT)", data=txt_content, file_name="dictation_result.txt", mime="text/plain", use_container_width=True)
+                st.download_button(label="💾 PC에 저장(TXT)", data=txt_content, file_name="dictation_result.txt", mime="text/plain", use_container_width=True, key="btn_download")
             with action_col3:
-                if st.button("✅ 학생들에게 배포하기", type="primary", use_container_width=True):
+                if st.button("✅ 학생들에게 배포하기", type="primary", use_container_width=True, key="btn_deploy"):
                     test_data = [p for p in st.session_state.spelling_problems if p["audio"] and p["answer"]]
                     if test_data:
                         try:
@@ -342,6 +353,7 @@ def render_teacher_dashboard():
                             st.error(f"저장 에러: {e}")
                     else:
                         st.warning("저장할 문제가 없습니다. 빈칸을 채워주세요.")
+                        
     elif menu == "로그아웃":
         st.session_state.page = "login"
         st.rerun()
@@ -353,7 +365,7 @@ def render_teacher_dashboard():
 def render_student_dashboard():
     """학생 대시보드 임시 화면"""
     st.success(f"👦 {st.session_state.user_info['name']} 학생 환영합니다!")
-    if st.button("로그아웃"):
+    if st.button("로그아웃", key="btn_logout_student"):
         st.session_state.page = "login"
         st.rerun()
 
