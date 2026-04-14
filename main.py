@@ -2,9 +2,9 @@ import streamlit as st
 import base64
 
 # 1. 페이지 설정
-st.set_page_config(page_title="나랏말싸미", layout="centered")
+st.set_page_config(page_title="나랏말싸미", layout="wide")
 
-# 2. UI 디자인 설정 (박스 제거, 폰트 확대, 입력칸 높이 조절)
+# 2. UI 디자인 설정 (CSS 최적화)
 def set_design():
     try:
         with open("bg.png", "rb") as f:
@@ -16,84 +16,107 @@ def set_design():
     st.markdown(
         f"""
         <style>
-        /* 1. 배경 설정 및 불필요한 기본 박스 완전 제거 */
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Nanum+Gothic:wght@400;700&display=swap');
+
+        /* 전체 배경 */
         .stApp {{
             background: url("data:image/png;base64,{bin_str}");
             background-size: cover;
             background-position: center;
         }}
-        
-        /* Streamlit 기본 박스(상자)를 완전히 투명하게 만듦 */
-        [data-testid="stVerticalBlock"] {{
-            background-color: transparent !important;
+
+        /* Streamlit 기본 요소 투명화 및 여백 제거 */
+        [data-testid="stHeader"], [data-testid="stVerticalBlock"] {{
+            background: transparent !important;
         }}
-        [data-testid="stHeader"] {{
-            background: rgba(0,0,0,0);
+        
+        /* 중앙 정렬 컨테이너 */
+        .main-wrapper {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            font-family: 'Nanum Gothic', sans-serif;
         }}
 
-        /* 2. 프로그램명: 가운데 정렬 및 가독성 강화 */
-        .title-area {{
+        /* 제목 섹션 */
+        .title-section {{
             text-align: center;
-            width: 100%;
-            margin-top: 20px;
-            margin-bottom: 40px;
+            margin-top: 30px;
+            margin-bottom: 20px;
         }}
         .main-title {{
-            font-size: 90px !important; /* 글자 훨씬 크게 */
-            font-weight: 900;
+            font-family: 'Nanum Myeongjo', serif;
+            font-size: 100px !important;
+            font-weight: 800;
             color: #3E2723;
-            text-shadow: -3px -3px 0 #fff, 3px -3px 0 #fff, -3px 3px 0 #fff, 3px 3px 0 #fff, 5px 5px 15px rgba(0,0,0,0.4);
+            text-shadow: 4px 4px 0px #FFFFFF, 8px 8px 20px rgba(0,0,0,0.3);
             margin-bottom: 0px;
         }}
         .sub-title {{
-            font-size: 40px !important;
-            font-weight: bold;
+            font-size: 38px !important;
             color: #5D4037;
-            text-shadow: -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff;
-            margin-top: 10px;
+            font-weight: 700;
+            margin-top: 0px;
+            text-shadow: 2px 2px 0px #FFFFFF;
         }}
 
-        /* 3. 입력창(Input) 영역 커스터마이징 */
-        /* 라벨(학교명, 이름 등) 크기 2배 확대 */
+        /* 입력 카드 영역 */
+        .input-card {{
+            background: rgba(255, 255, 255, 0.9);
+            padding: 50px;
+            border-radius: 40px;
+            border: 5px solid #8D6E63;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+            width: 750px;
+            margin-top: 20px;
+        }}
+
+        /* 입력 항목 라벨 */
         .stTextInput label, .stSelectbox label, .stRadio label p {{
-            font-size: 30px !important; /* 기존보다 2배 이상 */
+            font-size: 28px !important;
             color: #3E2723 !important;
-            font-weight: bold !important;
-            margin-bottom: 10px !important;
-            text-shadow: 1px 1px 0px #fff;
+            font-weight: 800 !important;
+            margin-bottom: 12px !important;
         }}
 
-        /* 입력창 높이(높이) 및 내부 글자 크기 대폭 확대 */
+        /* 입력창 스타일 */
         .stTextInput input, .stSelectbox div[data-baseweb="select"] {{
-            height: 70px !important; /* 높이 대폭 상향 */
-            font-size: 28px !important;
+            height: 75px !important;
+            font-size: 26px !important;
             border-radius: 15px !important;
-            border: 3px solid #5D4037 !important;
+            border: 2px solid #A1887F !important;
+            background-color: white !important;
         }}
         
-        /* 라디오 버튼(역할 선택) 글자 크기 */
+        /* 라디오 버튼 텍스트 크기 */
         div[data-testid="stMarkdownContainer"] p {{
-            font-size: 28px !important;
+            font-size: 26px !important;
+            font-weight: 600;
         }}
 
-        /* 4. 입장하기 버튼: 초대형화 */
+        /* 입장하기 버튼 */
         .stButton>button {{
             width: 100%;
-            background-color: #5D4037 !important;
+            background: linear-gradient(135deg, #8D6E63 0%, #5D4037 100%) !important;
             color: white !important;
-            font-size: 40px !important; /* 버튼 글자 대폭 확대 */
-            height: 90px !important; /* 버튼 높이 대폭 확대 */
+            font-size: 38px !important;
+            font-weight: 800;
+            height: 100px !important;
             border-radius: 20px;
-            margin-top: 40px;
-            border: 4px solid #fff;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border: 3px solid #FFFFFF;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.3);
+            margin-top: 30px;
+            transition: 0.3s;
         }}
-        
-        /* 화면 중앙에 정렬되도록 여백 조정 */
-        .main-container {{
-            max-width: 800px;
-            margin: 0 auto;
+        .stButton>button:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 12px 20px rgba(0,0,0,0.4);
         }}
+
+        /* 상단 툴바 숨기기 */
+        header {{visibility: hidden;}}
         </style>
         """,
         unsafe_allow_html=True
@@ -101,19 +124,20 @@ def set_design():
 
 set_design()
 
-# 3. 화면 구성
+# 3. 화면 구성 (HTML 구조로 강제 가운데 정렬)
 if 'page' not in st.session_state:
     st.session_state.page = "login"
 
 if st.session_state.page == "login":
-    # 1) 프로그램명 (완벽 가운데 정렬)
-    st.markdown('<div class="title-area">', unsafe_allow_html=True)
+    # 제목 영역
+    st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
+    st.markdown('<div class="title-section">', unsafe_allow_html=True)
     st.markdown('<p class="main-title">나랏말싸미</p>', unsafe_allow_html=True)
     st.markdown('<p class="sub-title">: 꿈틀이의 문해력 키우기</p>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # 2) 입력 영역 (박스 제거 후 내용만 배치)
-    st.write("<div class='main-container'>", unsafe_allow_html=True)
+    # 입력 카드 시작
+    st.markdown('<div class="input-card">', unsafe_allow_html=True)
     
     school = st.text_input("🏠 학교명")
     
@@ -134,7 +158,8 @@ if st.session_state.page == "login":
             st.session_state.page = "main"
             st.rerun()
             
-    st.write("</div>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True) # input-card 끝
+    st.markdown('</div>', unsafe_allow_html=True) # main-wrapper 끝
 
 elif st.session_state.page == "main":
     st.success(f"{st.session_state.user_info['name']}님, 환영합니다!")
