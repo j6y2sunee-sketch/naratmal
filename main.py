@@ -59,7 +59,7 @@ def set_design():
 
         /* 4. 입력창 라벨(학교명, 학년 등) 스타일 */
         .stTextInput label p, .stSelectbox label p, .stRadio label p {{
-            font-size: 1.1rem !important;
+            font-size: 1.5rem !important;
             color: #4E342E !important;
             font-weight: bold !important;
         }}
@@ -68,7 +68,7 @@ def set_design():
         .stTextInput input, .stSelectbox div[data-baseweb="select"] {{
             border-radius: 10px !important;
             border: 1.5px solid #D7CCC8 !important;
-            font-size: 1.1rem !important;
+            font-size: 1.5rem !important;
             height: 3rem !important; /* 적당한 높이 */
             background-color: #FAFAFA !important;
         }}
@@ -120,7 +120,7 @@ if st.session_state.page == "login":
     role = st.radio("역할 선택", ["학생", "교사"], horizontal=True)
 
     # 버튼
-    if st.button("집현전 입장하기"):
+    if st.button("입장하기"):
         if school and name and pw:
             st.session_state.user_info = {"name": name, "role": role}
             st.session_state.page = "main"
