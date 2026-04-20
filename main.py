@@ -216,7 +216,7 @@ def render_teacher_dashboard():
             st.divider()
 
     # -----------------------------------------------------------------
-    # 맞춤법 및 받아쓰기 관리 메뉴 (에러 원천 차단: 자동 모델 검색기 적용!)
+    # 맞춤법 및 받아쓰기 관리 메뉴
     # -----------------------------------------------------------------
     elif menu == "맞춤법 및 받아쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[맞춤법 및 받아쓰기 관리]</span></h2>', unsafe_allow_html=True)
@@ -247,29 +247,25 @@ def render_teacher_dashboard():
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        # 2. AI 문제 생성 로딩 (404 에러를 막기 위한 완벽한 자동 검색 로직)
+        # 2. AI 문제 생성 로딩
         elif st.session_state.spelling_subpage == "ai_loading":
             with st.spinner(f"구글 Gemini AI가 사용 가능한 서버를 찾아 문제를 생성 중입니다... (최대 10초 소요)"):
                 try:
-                    # 💡 [핵심 해결 로직] 구글 서버에 직접 "지금 사용 가능한 텍스트 모델 이름이 뭐야?"라고 물어보고 잡아옵니다.
-                    available_model_name = "models/gemini-pro" # 최후의 수단 기본값
+                    available_model_name = "models/gemini-pro"
                     for m in genai.list_models():
                         if 'generateContent' in m.supported_generation_methods:
                             available_model_name = m.name
-                            # 최신/최고 성능 모델을 우선적으로 선택
                             if "flash" in m.name or "pro" in m.name:
                                 break
                     
-                    st.toast(f"자동 감지된 AI 모델: {available_model_name}") # 잘 연결되었는지 우측 하단에 잠깐 띄워줌
+                    st.toast(f"자동 감지된 AI 모델: {available_model_name}")
                     
-                    # 자동 감지된 이름으로 모델 실행!
                     model = genai.GenerativeModel(available_model_name)
                     
                     prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. 반드시 자연스러운 한국어(표준어)로 작성해. 결과는 다른 말은 절대 하지 말고 오직 아래 JSON 구조로만 답해.\n{{\"problems\": [{{\"audio\": \"문제 문장\", \"answer\": \"정답 단어 또는 문장\"}}]}}"
                     
                     response = model.generate_content(prompt)
                     
-                    # AI가 불필요한 마크다운을 붙였을 경우 순수 JSON만 안전하게 추출
                     content = response.text.replace("```json", "").replace("```", "").strip()
                     start_idx = content.find('{')
                     end_idx = content.rfind('}') + 1
@@ -292,7 +288,7 @@ def render_teacher_dashboard():
                         st.session_state.spelling_subpage = "menu"
                         st.rerun()
 
-        # 3. 문제 확인 및 편집 화면
+        # 3. 문제 확인 및 편집 화면 (요청하신 UI/UX 개선 부분)
         elif st.session_state.spelling_subpage in ["ai_edit", "manual"]:
             st.markdown(f"### {'📝 AI 생성 문제 확인 및 수정' if st.session_state.spelling_subpage == 'ai_edit' else '✍️ [교사 직접 출제]'}")
             if st.button("⬅️ 뒤로가기", key="btn_back_edit"):
@@ -301,24 +297,43 @@ def render_teacher_dashboard():
             
             st.divider()
             
+            # 💡 [개선 1] 첫 번째 칸(문제), 두 번째 칸(정답) 제목 텍스트 표시
+            h1, h2, h3, h4, h5 = st.columns([0.6, 3.5, 3.5, 1.2, 1.2])
+            with h1: st.write("")
+            with h2: st.markdown("##### 📝 문제 문장 (소리)")
+            with h3: st.markdown("##### ✅ 정답 (받아쓰기 내용)")
+            with h4: st.write("")
+            with h5: st.write("")
+            
             audio_to_play = None
             to_delete = None
 
             for i, prob in enumerate(st.session_state.spelling_problems):
-                c1, c2, c3, c4, c5 = st.columns([1, 4, 3, 1, 1])
+                # 💡 [개선 3] 버튼이 조금 더 옆으로 길게(한 줄로) 나오도록 컬럼(가로) 비율 조정
+                c1, c2, c3, c4, c5 = st.columns([0.6, 3.5, 3.5, 1.2, 1.2])
+                
                 with c1: 
-                    st.write(f"**{i+1}번**")
+                    # 번호의 높이를 입력창과 예쁘게 맞춤
+                    st.write(f"<div style='padding-top:7px;'><b>{i+1}번</b></div>", unsafe_allow_html=True)
                 with c2: 
                     audio_val = st.text_input(f"문제 문장 (소리) {i}", value=prob.get("audio", ""), key=f"audio_input_{i}", label_visibility="collapsed")
                     st.session_state.spelling_problems[i]["audio"] = audio_val
                 with c3: 
-                    answer_val = st.text_input(f"정답 {i}", value=prob.get("answer", ""), key=f"answer_input_{i}", label_visibility="collapsed")
+                    # 💡 [개선 2] 첫 번째 칸의 문장이 두 번째 칸에 그대로 써 있도록 강제 동기화
+                    current_ans = prob.get("answer", "")
+                    # AI 모드 최초 실행이거나 정답칸이 비어있으면, 무조건 문제 문장(audio_val)을 그대로 정답 칸에 덮어씌움
+                    if (st.session_state.spelling_subpage == "ai_edit" and "synced" not in prob) or current_ans == "":
+                        current_ans = audio_val
+                        prob["synced"] = True
+                        
+                    answer_val = st.text_input(f"정답 {i}", value=current_ans, key=f"answer_input_{i}", label_visibility="collapsed")
                     st.session_state.spelling_problems[i]["answer"] = answer_val
                 with c4: 
-                    if st.button("🔊 듣기", key=f"listen_{i}"):
+                    # 버튼 폭을 칸에 꽉 차게(use_container_width=True) 설정해 글자가 잘리지 않음
+                    if st.button("🔊 듣기", key=f"listen_{i}", use_container_width=True):
                         audio_to_play = st.session_state.spelling_problems[i]["audio"]
                 with c5:
-                    if st.button("❌ 삭제", key=f"del_{i}"):
+                    if st.button("❌ 삭제", key=f"del_{i}", use_container_width=True):
                         to_delete = i
 
             if audio_to_play:
