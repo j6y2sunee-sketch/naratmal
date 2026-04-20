@@ -7,12 +7,10 @@ import io
 import firebase_admin
 from firebase_admin import credentials, db
 from gtts import gTTS
-import google.generativeai as genai  # 구글 제미나이 추가
 
 # --- 1. API 키 및 파이어베이스 설정 ---
-# 선생님께서 새로 발급받으신 구글 API 키입니다.
+# 선생님께서 새로 발급받으신 구글 API 키입니다. (구글 도구(SDK) 없이 이 키만으로 직접 통신합니다)
 GEMINI_API_KEY = "AIzaSyB56UcVY5bysn5xopRRnmTyEEhQg0bp5Rg".strip()
-genai.configure(api_key=GEMINI_API_KEY)
 
 # Firebase가 이미 초기화되었는지 확인 후 초기화 (중복 방지)
 if not firebase_admin._apps:
@@ -128,7 +126,7 @@ def render_login_page():
         classroom = st.text_input("반")
         
     name = st.text_input("이름")
-    pw = st.text_input("비밀번호", type="password")  # 선생님이 작성하신 비밀번호 필드 그대로 복구했습니다!
+    pw = st.text_input("비밀번호", type="password")
     role = st.radio("역할", ["학생", "교사"], horizontal=True)
     
     if st.button("입장하기"):
@@ -217,7 +215,7 @@ def render_teacher_dashboard():
             st.divider()
 
     # -----------------------------------------------------------------
-    # 맞춤법 및 받아쓰기 관리 메뉴 (Gemini 적용 완료 및 오류 수정)
+    # 맞춤법 및 받아쓰기 관리 메뉴 (직접 REST API 호출 방식 적용 - 에러 원천 차단)
     # -----------------------------------------------------------------
     elif menu == "맞춤법 및 받아쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[맞춤법 및 받아쓰기 관리]</span></h2>', unsafe_allow_html=True)
@@ -248,37 +246,45 @@ def render_teacher_dashboard():
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        # 2. AI 문제 생성 로딩 및 에러 처리 (오류 완벽 수정 버전)
+        # 2. AI 문제 생성 로딩 (직접 통신 방식으로 변경)
         elif st.session_state.spelling_subpage == "ai_loading":
-            with st.spinner(f"구글 Gemini AI가 {st.session_state.ai_grade} 수준 국어 문제를 생성 중입니다..."):
-                prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. 반드시 자연스러운 한국어(표준어)로 작성하고 아래 JSON 형식으로만 답해. 형식: {{'problems': [{{'audio': '문장', 'answer': '정답'}}]}}"
+            with st.spinner(f"구글 Gemini AI가 {st.session_state.ai_grade} 수준 국어 문제를 생성 중입니다... (최대 10초 소요)"):
+                prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. 반드시 자연스러운 한국어(표준어)로 작성해. 결과는 다른 말은 절대 하지 말고 오직 아래 JSON 구조로만 답해.\n{{\"problems\": [{{\"audio\": \"문제 문장\", \"answer\": \"정답 단어 또는 문장\"}}]}}"
+                
                 try:
-                    # 💡 오류 수정 부분: 구버전/신버전 가리지 않고 100% 호환되는 'gemini-pro' 명칭 사용
-                    model = genai.GenerativeModel('gemini-pro')
-                    response = model.generate_content(prompt)
+                    # 💡 구글 도구(SDK)를 무시하고 가장 확실한 REST API URL로 직접 통신!
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
                     
-                    # 텍스트에서 JSON 부분만 안전하게 추출
-                    content = response.text.replace("```json", "").replace("```", "").strip()
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {
+                            "temperature": 0.2,
+                            "responseMimeType": "application/json"  # 제미나이가 무조건 JSON만 뱉어내도록 강제
+                        }
+                    }
                     
-                    # AI가 설명글을 덧붙일 경우를 대비해 순수 JSON 괄호 부분만 추출
-                    start_idx = content.find('{')
-                    end_idx = content.rfind('}') + 1
-                    if start_idx != -1 and end_idx != 0:
-                        content = content[start_idx:end_idx]
+                    headers = {"Content-Type": "application/json"}
+                    response = requests.post(url, json=payload, headers=headers)
                     
-                    data = json.loads(content)
-                    st.session_state.spelling_problems = data.get('problems', [])
-                    st.session_state.spelling_subpage = "ai_edit"
-                    st.rerun()
-
-                except json.JSONDecodeError:
-                    st.error("AI가 올바른 JSON 데이터로 응답하지 못했습니다. 다시 시도해 주세요.")
-                    if st.button("돌아가기"): 
-                        st.session_state.spelling_subpage = "menu"
+                    if response.status_code == 200:
+                        res_data = response.json()
+                        # 데이터 파싱
+                        content = res_data['candidates'][0]['content']['parts'][0]['text']
+                        
+                        data = json.loads(content)
+                        st.session_state.spelling_problems = data.get('problems', [])
+                        st.session_state.spelling_subpage = "ai_edit"
                         st.rerun()
+                    else:
+                        st.error(f"통신 에러가 발생했습니다 (코드: {response.status_code})")
+                        st.write(response.text) # 원인 디버깅용
+                        if st.button("메뉴로 돌아가기"): 
+                            st.session_state.spelling_subpage = "menu"
+                            st.rerun()
+                            
                 except Exception as e:
-                    st.error(f"통신 중 심각한 오류 발생: {e}")
-                    if st.button("돌아가기"): 
+                    st.error(f"알 수 없는 오류 발생: {e}")
+                    if st.button("메뉴로 돌아가기"): 
                         st.session_state.spelling_subpage = "menu"
                         st.rerun()
 
