@@ -7,18 +7,19 @@ import io
 import firebase_admin
 from firebase_admin import credentials, db
 from gtts import gTTS
+import google.generativeai as genai  # 구글 제미나이 추가
 
-# --- API 키 및 파이어베이스 설정 ---
-# .strip()을 추가하여 눈에 보이지 않는 공백 문자를 강제로 제거합니다.
-GROQ_API_KEY = "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".strip()
-TARGET_URL = "https://api.groq.com/openai/v1/chat/completions".strip()
+# --- 1. API 키 및 파이어베이스 설정 ---
+# 선생님께서 새로 발급받으신 구글 API 키입니다.
+GEMINI_API_KEY = "AIzaSyB56UcVY5bysn5xopRRnmTyEEhQg0bp5Rg".strip()
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Firebase가 이미 초기화되었는지 확인 후 초기화 (중복 방지)
 if not firebase_admin._apps:
     try:
         cred = credentials.Certificate("naratmal.json") # JSON 파일이 같은 폴더에 있어야 합니다!
         firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://naratmalssami-ed385-default-rtdb.firebaseio.com'
+            'databaseURL': '[https://naratmalssami-ed385-default-rtdb.firebaseio.com](https://naratmalssami-ed385-default-rtdb.firebaseio.com)'
         })
     except Exception as e:
         st.error(f"Firebase 초기화 에러: {e}")
@@ -216,7 +217,7 @@ def render_teacher_dashboard():
             st.divider()
 
     # -----------------------------------------------------------------
-    # 맞춤법 및 받아쓰기 관리 메뉴
+    # 맞춤법 및 받아쓰기 관리 메뉴 (Gemini 적용 완료)
     # -----------------------------------------------------------------
     elif menu == "맞춤법 및 받아쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[맞춤법 및 받아쓰기 관리]</span></h2>', unsafe_allow_html=True)
@@ -247,63 +248,31 @@ def render_teacher_dashboard():
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        # 2. AI 문제 생성 로딩 및 에러 처리
+        # 2. AI 문제 생성 로딩 및 에러 처리 (Gemini 버전)
         elif st.session_state.spelling_subpage == "ai_loading":
-            with st.spinner(f"Groq AI가 {st.session_state.ai_grade} 수준 국어 문제를 생성 중입니다..."):
-                prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 JSON으로만 답해. 형식: {{'problems': [{{'audio': '문장', 'answer': '정답'}}]}}"
+            with st.spinner(f"구글 Gemini AI가 {st.session_state.ai_grade} 수준 국어 문제를 생성 중입니다..."):
+                prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. 반드시 자연스러운 한국어(표준어)로 작성하고 아래 JSON 형식으로만 답해. 형식: {{'problems': [{{'audio': '문장', 'answer': '정답'}}]}}"
                 try:
-                    payload = {
-                        "model": "llama-3.3-70b-versatile", 
-                        "temperature": 0.2, 
-                        "messages": [
-                            {"role": "system", "content": "You are a helpful assistant that outputs only JSON. 반드시 자연스럽고 완벽한 한국어(표준어)로만 작성하세요."}, 
-                            {"role": "user", "content": prompt}
-                        ], 
-                        "response_format": {"type": "json_object"}
-                    }
-                    headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
+                    # Gemini 모델 설정 및 호출
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response = model.generate_content(prompt)
                     
-                    # URL 양 끝의 공백을 완벽히 제거한 TARGET_URL을 사용
-                    response = requests.post(TARGET_URL.strip(), json=payload, headers=headers)
+                    # 응답 텍스트에서 JSON 부분만 추출
+                    content = response.text.replace("```json", "").replace("```", "").strip()
                     
-                    if response.status_code == 200:
-                        result = response.json()
-                        if 'choices' in result:
-                            content = result['choices'][0]['message']['content'].strip()
-                            if content.startswith("```json"):
-                                content = content[7:-3].strip()
-                            elif content.startswith("```"):
-                                content = content[3:-3].strip()
-
-                            data = json.loads(content)
-                            st.session_state.spelling_problems = data.get('problems', [])
-                            st.session_state.spelling_subpage = "ai_edit"
-                            st.rerun()
-                        else:
-                            st.error("API 응답에 'choices' 데이터가 없습니다.")
-                            st.write(result) 
-                            if st.button("돌아가기", key="btn_back_err"): 
-                                st.session_state.spelling_subpage = "menu"
-                                st.rerun()
-                    
-                    else:
-                        err_data = response.json()
-                        err_msg = err_data.get("error", {}).get("message", "알 수 없는 에러")
-                        st.error(f"❌ Groq API 에러 발생 (코드 {response.status_code})")
-                        st.warning(f"에러 상세 내용: {err_msg}")
-                        st.info("💡 팁: 제공해주신 Groq API 키가 만료/정지되었거나, 무료 한도를 초과했을 확률이 높습니다. 새로운 API 키를 발급받아 코드를 수정해 보세요.")
-                        if st.button("돌아가기", key="btn_back_err2"): 
-                            st.session_state.spelling_subpage = "menu"
-                            st.rerun()
+                    data = json.loads(content)
+                    st.session_state.spelling_problems = data.get('problems', [])
+                    st.session_state.spelling_subpage = "ai_edit"
+                    st.rerun()
 
                 except json.JSONDecodeError:
-                    st.error("AI가 올바른 JSON 형태(데이터)로 답을 주지 않았습니다. 다시 생성해주세요.")
-                    if st.button("돌아가기", key="btn_back_err3"): 
+                    st.error("AI가 올바른 JSON 데이터로 응답하지 못했습니다. 다시 시도해 주세요.")
+                    if st.button("돌아가기"): 
                         st.session_state.spelling_subpage = "menu"
                         st.rerun()
                 except Exception as e:
                     st.error(f"통신 중 심각한 오류 발생: {e}")
-                    if st.button("돌아가기", key="btn_back_err4"): 
+                    if st.button("돌아가기"): 
                         st.session_state.spelling_subpage = "menu"
                         st.rerun()
 
