@@ -12,9 +12,10 @@ from gtts import gTTS
 GROQ_API_KEY = "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"
 TARGET_URL = "https://api.groq.com/openai/v1/chat/completions"
 
+# Firebase가 이미 초기화되었는지 확인 후 초기화 (중복 방지)
 if not firebase_admin._apps:
     try:
-        cred = credentials.Certificate("naratmal.json")
+        cred = credentials.Certificate("naratmal.json") # JSON 파일이 같은 폴더에 있어야 합니다!
         firebase_admin.initialize_app(cred, {
             'databaseURL': 'https://naratmalssami-ed385-default-rtdb.firebaseio.com'
         })
@@ -24,19 +25,22 @@ if not firebase_admin._apps:
 # --- 웹용 TTS (음성 재생) 함수 ---
 def play_voice_st(text):
     if not text: return
-    tts = gTTS(text=text, lang='ko')
-    fp = io.BytesIO()
-    tts.write_to_fp(fp)
-    fp.seek(0)
-    # Streamlit에서 오디오 플레이어 띄우기 (자동 재생 시도)
-    st.audio(fp, format="audio/mp3", autoplay=True)
+    try:
+        tts = gTTS(text=text, lang='ko')
+        fp = io.BytesIO()
+        tts.write_to_fp(fp)
+        fp.seek(0)
+        # Streamlit에서 오디오 플레이어 띄우기 (자동 재생)
+        st.audio(fp, format="audio/mp3", autoplay=True)
+    except Exception as e:
+        st.error(f"음성 재생 오류: {e}")
 
 # ==========================================
 # 1. 페이지 및 기본 설정
 # ==========================================
 st.set_page_config(page_title="나랏말싸미", layout="wide")
 
-# 세션 상태(Session State) 초기화 (화면이 다시 그려져도 유지되어야 할 데이터)
+# 세션 상태(Session State) 초기화
 if 'page' not in st.session_state:
     st.session_state.page = "login"
 if 'spelling_subpage' not in st.session_state:
@@ -169,7 +173,6 @@ def render_teacher_dashboard():
         st.markdown('<h2><span style="color:#5D4037;">[학생 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
 
-        # 학생 데이터만 필터링하여 출력
         students = {uid: data for uid, data in st.session_state.mock_users.items() if data['role'] == '학생'}
         
         for uid, data in students.items():
@@ -198,7 +201,7 @@ def render_teacher_dashboard():
                 with ai_col1:
                     if st.button("🤖 AI 분석하기", key=f"ai_btn_{uid}"):
                         with st.spinner(f"{data['name']} 학생 데이터를 분석 중입니다..."):
-                            time.sleep(1.5) # Groq API 호출을 대체하는 대기 시간
+                            time.sleep(1.5)
                             dummy_ai_result = f"👩‍🏫 {data['name']} 학생은 맞춤법과 집현전 독서에서 뛰어난 성취를 보이고 있어요! 훌륭하게 성장 중입니다."
                             st.session_state.mock_users[uid]['ai_report'] = dummy_ai_result
                             st.rerun()
@@ -210,7 +213,7 @@ def render_teacher_dashboard():
                     else:
                         st.info(report_text)
             
-            st.divider() # 학생 사이의 구분선
+            st.divider()
 
     # -----------------------------------------------------------------
     # 맞춤법 및 받아쓰기 관리 메뉴
@@ -239,7 +242,6 @@ def render_teacher_dashboard():
                 st.markdown("<h3>교사 직접 출제</h3>", unsafe_allow_html=True)
                 st.write("<br><br>", unsafe_allow_html=True)
                 if st.button("직접 출제하기", use_container_width=True):
-                    # 직접 출제일 경우 빈 10문제 생성
                     st.session_state.spelling_problems = [{"audio": "", "answer": ""} for _ in range(10)]
                     st.session_state.spelling_subpage = "manual"
                     st.rerun()
@@ -271,7 +273,7 @@ def render_teacher_dashboard():
                         st.session_state.spelling_subpage = "menu"
                         st.rerun()
 
-        # 3. 문제 확인 및 편집 화면 (AI 및 수동 공통)
+        # 3. 문제 확인 및 편집 화면
         elif st.session_state.spelling_subpage in ["ai_edit", "manual"]:
             st.markdown(f"### {'📝 AI 생성 문제 확인 및 수정' if st.session_state.spelling_subpage == 'ai_edit' else '✍️ [교사 직접 출제]'}")
             if st.button("⬅️ 뒤로가기", key="btn_back_edit"):
@@ -280,17 +282,14 @@ def render_teacher_dashboard():
             
             st.divider()
             
-            # 오디오 재생을 위한 임시 변수
             audio_to_play = None
             to_delete = None
 
-            # 문제 목록 출력
             for i, prob in enumerate(st.session_state.spelling_problems):
                 c1, c2, c3, c4, c5 = st.columns([1, 4, 3, 1, 1])
                 with c1: 
                     st.write(f"**{i+1}번**")
                 with c2: 
-                    # Streamlit 경고를 막기 위해 key를 지정하고 값을 안전하게 할당
                     audio_val = st.text_input(f"문제 문장 (소리) {i}", value=prob.get("audio", ""), key=f"audio_input_{i}", label_visibility="collapsed")
                     st.session_state.spelling_problems[i]["audio"] = audio_val
                 with c3: 
@@ -303,12 +302,10 @@ def render_teacher_dashboard():
                     if st.button("❌ 삭제", key=f"del_{i}"):
                         to_delete = i
 
-            # 듣기 버튼 클릭 시 음성 재생 바 띄우기
             if audio_to_play:
                 st.info("👇 아래 재생 버튼을 누르면 소리가 나옵니다.")
                 play_voice_st(audio_to_play)
 
-            # 삭제 동작 (화면을 다시 그려야 함)
             if to_delete is not None:
                 st.session_state.spelling_problems.pop(to_delete)
                 st.rerun()
@@ -319,7 +316,6 @@ def render_teacher_dashboard():
                 
             st.divider()
             
-            # 저장 및 배포 버튼 영역
             action_col1, action_col2, action_col3 = st.columns([1, 1, 1])
             with action_col1:
                 if st.session_state.spelling_subpage == "ai_edit":
@@ -327,7 +323,6 @@ def render_teacher_dashboard():
                         st.session_state.spelling_subpage = "ai_loading"
                         st.rerun()
             with action_col2:
-                # 메모장 저장 대신 파일 다운로드 버튼 제공
                 txt_content = "\n".join([f"{i+1}. 문장: {p['audio']} / 정답: {p['answer']}" for i, p in enumerate(st.session_state.spelling_problems)])
                 st.download_button(label="💾 PC에 저장(TXT)", data=txt_content, file_name="dictation_result.txt", mime="text/plain", use_container_width=True, key="btn_download")
             with action_col3:
@@ -335,11 +330,9 @@ def render_teacher_dashboard():
                     test_data = [p for p in st.session_state.spelling_problems if p["audio"] and p["answer"]]
                     if test_data:
                         try:
-                            # Firebase 저장
                             u_info = st.session_state.user_info
                             path = f"spelling_tests/{u_info['school']}/{u_info['grade']}/{u_info['class']}"
                             
-                            # 제목 생성
                             t_prefix = st.session_state.ai_grade if st.session_state.spelling_subpage == "ai_edit" else u_info['grade']
                             t_suffix = "(AI)" if st.session_state.spelling_subpage == "ai_edit" else ""
                             
@@ -360,7 +353,6 @@ def render_teacher_dashboard():
 
     else:
         st.warning(f"'{menu}' 메뉴는 현재 Streamlit으로 마이그레이션 중입니다! 🚧")
-
 
 def render_student_dashboard():
     """학생 대시보드 임시 화면"""
