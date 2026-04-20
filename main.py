@@ -92,7 +92,7 @@ if "anthology_mode" not in st.session_state: st.session_state.anthology_mode = "
 if "filter_type" not in st.session_state: st.session_state.filter_type = ""
 if "filter_value" not in st.session_state: st.session_state.filter_value = ""
 
-# 💡 [집현전 세션 추가]
+# 집현전 세션
 if "jh_mode" not in st.session_state: st.session_state.jh_mode = "list"
 if "jh_book_id" not in st.session_state: st.session_state.jh_book_id = ""
 if "jh_book_data" not in st.session_state: st.session_state.jh_book_data = {}
@@ -445,13 +445,13 @@ def render_teacher_dashboard():
 
     elif menu == "글쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[글쓰기 관리]</span></h2>', unsafe_allow_html=True)
-        st.markdown("학생들에게 제시할 글쓰기 주제를 배포합니다.")
+        st.markdown("학생들에게 제시할 새로운 글쓰기 주제를 배포합니다.")
         st.divider()
 
         u = st.session_state.user_info
         db_path = f"writing_tasks/{u['school']}/{u['grade']}/{u['class']}"
 
-        # 💡 추가된 기능: 현재 배포된 주제를 화면 상단에 보여주어 관리 편의성 증대
+        # 1. 상단: 현재 배포 상태 표시 (기존 유지)
         current_task = db.reference(db_path).get()
         if current_task and isinstance(current_task, dict):
             with st.container(border=True):
@@ -459,28 +459,77 @@ def render_teacher_dashboard():
                 st.info(f"**주제:** {current_task.get('topic', '없음')}")
                 st.caption(f"**가이드라인:** {current_task.get('guideline', '없음')}")
         else:
-            st.info("현재 배포된 글쓰기 주제가 없습니다. 새로운 주제를 배포해주세요.")
+            st.info("현재 배포된 글쓰기 주제가 없습니다. 아래에서 새로운 주제를 배포해주세요.")
 
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("### 📝 새로운 주제 배포하기")
-        
-        # 💡 UI 개선: 탭 대신 라디오 버튼을 사용하여 화면 전환을 부드럽게 구성
-        method = st.radio("주제 생성 방식 선택", ["🤖 AI 주제 추천", "✍️ 직접 제시"], horizontal=True)
+        st.markdown("### 📝 새로운 주제 생성 및 배포")
 
-        if method == "🤖 AI 주제 추천":
+        # 💡 [핵심 UI 변경 부분] 탭 대신 카드형 선택 화면 구성
+        
+        # 생성 방식을 관리하기 위한 세션 상태 (최초 진입 시 'select' 모드)
+        if "writing_deploy_mode" not in st.session_state:
+            st.session_state.writing_deploy_mode = "select"
+
+        # 뒤로가기 버튼 로직 (AI 편집이나 직접 입력 화면에서 사용)
+        def go_back_to_select():
+            st.session_state.writing_deploy_mode = "select"
+            if "ai_topic" in st.session_state: del st.session_state.ai_topic # AI 임시 데이터 삭제
+            st.rerun()
+
+        # --- A. 방식 선택 화면 (카드 2개) ---
+        if st.session_state.writing_deploy_mode == "select":
+            col1, col2 = st.columns(2)
+
+            # 카드 1: AI 주제 추천
+            with col1:
+                with st.container(border=True):
+                    # 문해력 관리와 같은 스타일의 아이콘과 타이틀
+                    st.markdown("""
+                        <div style='text-align:center; padding: 20px 0;'>
+                            <div style='font-size: 50px; margin-bottom: 15px;'>🤖</div>
+                            <h3 style='margin:0; color:#5D4037;'>AI 주제 추천</h3>
+                            <p style='color:#757575; font-size:14px; margin-top:10px;'>AI가 학년 수준에 맞는<br>창의적인 주제를 추천합니다.</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button("추천받기", key="btn_ai_mode", use_container_width=True):
+                        st.session_state.writing_deploy_mode = "ai_form"
+                        st.rerun()
+
+            # 카드 2: 선생님 직접 제시
+            with col2:
+                with st.container(border=True):
+                    st.markdown("""
+                        <div style='text-align:center; padding: 20px 0;'>
+                            <div style='font-size: 50px; margin-bottom: 15px;'>✍️</div>
+                            <h3 style='margin:0; color:#5D4037;'>선생님 직접 제시</h3>
+                            <p style='color:#757575; font-size:14px; margin-top:10px;'>선생님이 생각하신 주제를<br>직접 입력하여 배포합니다.</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if st.button("직접하기", key="btn_manual_mode", use_container_width=True):
+                        st.session_state.writing_deploy_mode = "manual_form"
+                        st.rerun()
+
+        # --- B. AI 추천 세부 화면 ---
+        elif st.session_state.writing_deploy_mode == "ai_form":
+            st.button("⬅️ 방식 선택으로 돌아가기", on_click=go_back_to_select)
+            
             with st.container(border=True):
-                st.markdown("#### 🤖 AI에게 주제 추천받기")
+                st.markdown("#### 🤖 AI 주제 추천 설정")
                 
-                # 💡 로그인 정보 기반 기본 학년 자동 설정
+                # 로그인 정보 기반 기본 학년 자동 설정 로직 (기존 유지)
                 default_grade = str(u.get('grade', '3'))
-                default_index = int(default_grade.replace("학년", "")) - 1 if default_grade.replace("학년", "").isdigit() else 2
+                cleaned_grade = default_grade.replace("학년", "").strip()
+                default_index = int(cleaned_grade) - 1 if cleaned_grade.isdigit() and 1 <= int(cleaned_grade) <= 6 else 2
                 
                 c1, c2 = st.columns([3, 1])
                 write_grade = c1.selectbox("대상 학년 수준", [f"{i}학년" for i in range(1, 7)], index=default_index, key="write_grade_select")
                 
-                if c2.button("✨ AI 생성 시작", use_container_width=True, type="primary"):
-                    with st.spinner("AI가 창의적인 주제를 고민 중입니다..."):
+                if c2.button("✨ 주제 생성", use_container_width=True, type="primary"):
+                    with st.spinner("AI가 주제를 고민 중입니다..."):
                         try:
+                            # Gemini 호출 로직 (기존 유지)
                             available_model_name = "gemini-1.5-flash"
                             for m in genai.list_models():
                                 if 'generateContent' in m.supported_generation_methods:
@@ -497,29 +546,32 @@ def render_teacher_dashboard():
                             st.session_state.ai_guide = res_data.get('guideline', '')
                         except Exception as ex:
                             if "403" in str(ex) or "leaked" in str(ex).lower():
-                                st.error("❌ API 키 차단 오류: 구글에서 현재 사용 중인 API 키가 외부에 유출된 것으로 판단하여 사용을 차단했습니다. 새 키를 발급받아주세요.")
+                                st.error("❌ API 키 오류: Secrets 설정을 확인해주세요.")
                             else:
-                                st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {ex})")
+                                st.error(f"생성 중 오류: {ex}")
 
-                # AI가 주제를 생성했을 때만 아래 폼 보이기
+                # AI 생성 주제 편집 및 배포 영역
                 if "ai_topic" in st.session_state:
                     st.divider()
                     st.markdown("#### 🛠️ 생성된 주제 확인 및 배포")
-                    # 💡 짧은 '주제'는 text_input으로 변경하여 공간 확보 및 UI 개선
                     edited_topic = st.text_input("주제 (수정 가능)", value=st.session_state.ai_topic)
                     edited_guide = st.text_area("가이드라인 (수정 가능)", value=st.session_state.ai_guide, height=100)
                     
-                    if st.button("💾 이 주제로 배포하기", type="primary", use_container_width=True):
+                    if st.button("💾 이 주제로 최종 배포하기", type="primary", use_container_width=True):
                         db.reference(db_path).set({"topic": edited_topic, "guideline": edited_guide, "created_at": str(time.time())})
                         st.success("✅ 문제 배포가 완료되었습니다!")
+                        time.sleep(1)
+                        # 배포 후 초기 상태로 복귀
+                        st.session_state.writing_deploy_mode = "select"
                         del st.session_state.ai_topic
-                        time.sleep(1) # 안내 메시지 보여준 후
-                        st.rerun()    # 화면 새로고침하여 상단 '현재 배포된 주제' 갱신
+                        st.rerun()
 
-        elif method == "✍️ 직접 제시":
+        # --- C. 직접 제시 세부 화면 ---
+        elif st.session_state.writing_deploy_mode == "manual_form":
+            st.button("⬅️ 방식 선택으로 돌아가기", on_click=go_back_to_select)
+            
             with st.container(border=True):
-                st.markdown("#### ✍️ 선생님이 직접 주제 입력하기")
-                # 💡 주제는 text_input, 가이드라인은 text_area로 구분하여 깔끔하게 배치
+                st.markdown("#### ✍️ 선생님 직접 주제 입력")
                 manual_topic = st.text_input("주제", placeholder="학생들에게 제시할 주제를 입력하세요.", key="man_topic")
                 manual_guide = st.text_area("가이드라인", placeholder="글쓰기 가이드라인을 입력하세요.", height=150, key="man_guide")
                 
@@ -528,6 +580,8 @@ def render_teacher_dashboard():
                         db.reference(db_path).set({"topic": manual_topic, "guideline": manual_guide, "created_at": str(time.time())})
                         st.success("✅ 문제 배포가 완료되었습니다!")
                         time.sleep(1)
+                        # 배포 후 초기 상태로 복귀
+                        st.session_state.writing_deploy_mode = "select"
                         st.rerun()
                     else:
                         st.warning("⚠️ 배포할 주제를 입력해주세요.")
