@@ -10,7 +10,7 @@ from gtts import gTTS
 import google.generativeai as genai  
 
 # --- 1. API 키 및 파이어베이스 설정 ---
-GEMINI_API_KEY = "AIzaSyCCAWQdULdgUlbaFpvGZ9tFC_jPvPY1JjI".strip()
+GEMINI_API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=GEMINI_API_KEY)
 
 if not firebase_admin._apps:
