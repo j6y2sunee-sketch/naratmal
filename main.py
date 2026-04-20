@@ -862,15 +862,129 @@ def render_teacher_dashboard():
                         time.sleep(0.5)
                         st.rerun()
 
-    elif menu in ["상점 관리", "점수 관리"]:
-        st.markdown(f'<h2><span style="color:#5D4037;">[{menu}]</span></h2>', unsafe_allow_html=True)
+    elif menu == "상점 관리":
+        st.markdown('<h2><span style="color:#5D4037;">[상점 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
-        st.info("이곳에 관리 코드를 작성하시면 됩니다. 🚧")
+        u = st.session_state.user_info
+        shop_path = f"shop_items/{u['school']}/{u['grade']}/{u['class']}"
+        req_path = f"shop_requests/{u['school']}/{u['grade']}/{u['class']}"
+
+        st.markdown("### 🛒 상점 물품 등록")
+        with st.form("add_shop_item"):
+            c1, c2, c3 = st.columns([2, 1, 1])
+            new_item_name = c1.text_input("물품명", placeholder="예: 간식 교환권, 자리 바꾸기 권")
+            new_item_price = c2.number_input("가격 (P)", min_value=0, step=10)
+            submitted = c3.form_submit_button("➕ 등록")
+            if submitted and new_item_name:
+                db.reference(shop_path).push({"name": new_item_name.strip(), "price": int(new_item_price)})
+                st.success(f"'{new_item_name}' 물품이 등록되었습니다!")
+                time.sleep(0.5)
+                st.rerun()
+
+        st.divider()
+        st.markdown("### 🎁 등록된 물품 목록")
+        items = safe_dict(db.reference(shop_path).get())
+        if items:
+            for iid, idata in items.items():
+                if isinstance(idata, dict):
+                    col1, col2, col3 = st.columns([4, 2, 2])
+                    col1.markdown(f"**🎁 {idata.get('name')}**")
+                    col2.markdown(f"**💰 {idata.get('price')}P**")
+                    if col3.button("❌ 삭제", key=f"del_item_{iid}"):
+                        db.reference(f"{shop_path}/{iid}").delete()
+                        st.rerun()
+        else:
+            st.info("등록된 물품이 없습니다. 상점에 물품을 등록해주세요.")
+
+        st.divider()
+        st.markdown("### 🙋‍♂️ 학생 사용 신청 내역")
+        reqs = safe_dict(db.reference(req_path).get())
+        pending_reqs = {k: v for k, v in reqs.items() if isinstance(v, dict) and not v.get('approved')}
+        
+        if pending_reqs:
+            for rid, rdata in pending_reqs.items():
+                with st.container(border=True):
+                    rc1, rc2 = st.columns([8, 2])
+                    rc1.markdown(f"🙋‍♂️ **{rdata.get('student_name')}** 학생이 **'{rdata.get('item_name')}'** 사용을 요청했습니다.")
+                    if rc2.button("✅ 승인", key=f"app_{rid}"):
+                        sid = rdata.get('student_id')
+                        iname = rdata.get('item_name')
+                        if sid and iname:
+                            inv_ref = db.reference(f"users/{sid}/inventory/{iname}")
+                            curr = inv_ref.get() or 0
+                            if int(curr) > 0:
+                                inv_ref.set(int(curr) - 1)
+                        db.reference(f"{req_path}/{rid}").update({"approved": True})
+                        st.success("승인 완료!")
+                        time.sleep(0.5)
+                        st.rerun()
+        else:
+            st.write("대기 중인 사용 요청이 없습니다.")
+
+    # 💡 [새로 추가된 점수 관리 코드]
+    elif menu == "점수 관리":
+        st.markdown('<h2><span style="color:#5D4037;">[점수 관리]</span></h2>', unsafe_allow_html=True)
+        st.divider()
+        u = st.session_state.user_info
+        settings_path = f"score_settings/{u['school']}/{u['grade']}/{u['class']}"
+
+        # 파이어베이스 배열/딕셔너리 안전 변환 로직
+        def safe_to_dict_local(data):
+            if isinstance(data, list):
+                return {str(i): v for i, v in enumerate(data) if v is not None}
+            return data if isinstance(data, dict) else {}
+
+        raw_data = db.reference(settings_path).get()
+        data = safe_to_dict_local(raw_data)
+        
+        existing_scores = safe_to_dict_local(data.get("scores"))
+        existing_levels = safe_to_dict_local(data.get("levels"))
+
+        default_scores = {"spelling": 10, "spelling_bonus": 50, "literacy": 20, "literacy_bonus": 100, "writing": 50, "share": 5, "comment": 2, "jiphyeon": 100}
+        default_levels = {"2": 100, "3": 300, "4": 600, "5": 1000, "6": 1500, "7": 2100}
+
+        # 상태 초기화
+        sc_state = {k: existing_scores.get(k, default_scores[k]) for k in default_scores}
+        lv_state = {str(k): existing_levels.get(str(k), default_levels[str(k)]) for k in default_levels}
+
+        with st.form("score_settings_form"):
+            st.markdown("### 🎯 활동별 획득 점수 설정")
+            sc1, sc2, sc3, sc4 = st.columns(4)
+            sc_state["spelling"] = sc1.number_input("맞춤법 (기본)", value=int(sc_state["spelling"]), step=1)
+            sc_state["spelling_bonus"] = sc2.number_input("맞춤법 (전체정답 보너스)", value=int(sc_state["spelling_bonus"]), step=1)
+            sc_state["literacy"] = sc3.number_input("문해력 (기본)", value=int(sc_state["literacy"]), step=1)
+            sc_state["literacy_bonus"] = sc4.number_input("문해력 (전체정답 보너스)", value=int(sc_state["literacy_bonus"]), step=1)
+            
+            sc5, sc6, sc7, sc8 = st.columns(4)
+            sc_state["writing"] = sc5.number_input("글쓰기", value=int(sc_state["writing"]), step=1)
+            sc_state["share"] = sc6.number_input("공유", value=int(sc_state["share"]), step=1)
+            sc_state["comment"] = sc7.number_input("댓글", value=int(sc_state["comment"]), step=1)
+            sc_state["jiphyeon"] = sc8.number_input("집현전", value=int(sc_state["jiphyeon"]), step=1)
+            
+            st.divider()
+            st.markdown("### 📈 레벨업 요구 점수 설정")
+            lc1, lc2, lc3 = st.columns(3)
+            lv_state["2"] = lc1.number_input("Lv.2 요구 점수", value=int(lv_state["2"]), step=10)
+            lv_state["3"] = lc2.number_input("Lv.3 요구 점수", value=int(lv_state["3"]), step=10)
+            lv_state["4"] = lc3.number_input("Lv.4 요구 점수", value=int(lv_state["4"]), step=10)
+            
+            lc4, lc5, lc6 = st.columns(3)
+            lv_state["5"] = lc4.number_input("Lv.5 요구 점수", value=int(lv_state["5"]), step=10)
+            lv_state["6"] = lc5.number_input("Lv.6 요구 점수", value=int(lv_state["6"]), step=10)
+            lv_state["7"] = lc6.number_input("Lv.7 요구 점수", value=int(lv_state["7"]), step=10)
+
+            st.write("")
+            if st.form_submit_button("💾 설정 저장하기", type="primary"):
+                try:
+                    db.reference(settings_path).set({
+                        "scores": sc_state,
+                        "levels": lv_state
+                    })
+                    st.success("설정이 성공적으로 저장되었습니다!")
+                except Exception as ex:
+                    st.error(f"저장 실패: {str(ex)}")
+
     elif menu == "로그아웃":
-        st.session_state.page = "login"
-        st.rerun()
-    else:
-        st.warning(f"'{menu}' 메뉴는 현재 마이그레이션/개발 중입니다! 🚧")
 
 
 def render_student_dashboard():
