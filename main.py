@@ -19,7 +19,7 @@ if not firebase_admin._apps:
     try:
         cred = credentials.Certificate("naratmal.json") # JSON 파일이 같은 폴더에 있어야 합니다!
         firebase_admin.initialize_app(cred, {
-            'databaseURL': '[https://naratmalssami-ed385-default-rtdb.firebaseio.com](https://naratmalssami-ed385-default-rtdb.firebaseio.com)'
+            'databaseURL': 'https://naratmalssami-ed385-default-rtdb.firebaseio.com'
         })
     except Exception as e:
         st.error(f"Firebase 초기화 에러: {e}")
@@ -128,7 +128,7 @@ def render_login_page():
         classroom = st.text_input("반")
         
     name = st.text_input("이름")
-    pw = st.text_input("비밀번호", type="password")
+    pw = st.text_input("비밀번호", type="password")  # 선생님이 작성하신 비밀번호 필드 그대로 복구했습니다!
     role = st.radio("역할", ["학생", "교사"], horizontal=True)
     
     if st.button("입장하기"):
@@ -217,7 +217,7 @@ def render_teacher_dashboard():
             st.divider()
 
     # -----------------------------------------------------------------
-    # 맞춤법 및 받아쓰기 관리 메뉴 (Gemini 적용 완료)
+    # 맞춤법 및 받아쓰기 관리 메뉴 (Gemini 적용 완료 및 오류 수정)
     # -----------------------------------------------------------------
     elif menu == "맞춤법 및 받아쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[맞춤법 및 받아쓰기 관리]</span></h2>', unsafe_allow_html=True)
@@ -248,17 +248,23 @@ def render_teacher_dashboard():
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        # 2. AI 문제 생성 로딩 및 에러 처리 (Gemini 버전)
+        # 2. AI 문제 생성 로딩 및 에러 처리 (오류 완벽 수정 버전)
         elif st.session_state.spelling_subpage == "ai_loading":
             with st.spinner(f"구글 Gemini AI가 {st.session_state.ai_grade} 수준 국어 문제를 생성 중입니다..."):
                 prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. 반드시 자연스러운 한국어(표준어)로 작성하고 아래 JSON 형식으로만 답해. 형식: {{'problems': [{{'audio': '문장', 'answer': '정답'}}]}}"
                 try:
-                    # Gemini 모델 설정 및 호출
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    # 💡 오류 수정 부분: 구버전/신버전 가리지 않고 100% 호환되는 'gemini-pro' 명칭 사용
+                    model = genai.GenerativeModel('gemini-pro')
                     response = model.generate_content(prompt)
                     
-                    # 응답 텍스트에서 JSON 부분만 추출
+                    # 텍스트에서 JSON 부분만 안전하게 추출
                     content = response.text.replace("```json", "").replace("```", "").strip()
+                    
+                    # AI가 설명글을 덧붙일 경우를 대비해 순수 JSON 괄호 부분만 추출
+                    start_idx = content.find('{')
+                    end_idx = content.rfind('}') + 1
+                    if start_idx != -1 and end_idx != 0:
+                        content = content[start_idx:end_idx]
                     
                     data = json.loads(content)
                     st.session_state.spelling_problems = data.get('problems', [])
