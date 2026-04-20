@@ -920,8 +920,7 @@ def render_teacher_dashboard():
                         st.rerun()
         else:
             st.write("대기 중인 사용 요청이 없습니다.")
-
-    # 💡 [새로 추가된 점수 관리 코드]
+   
     elif menu == "점수 관리":
         st.markdown('<h2><span style="color:#5D4037;">[점수 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -985,7 +984,10 @@ def render_teacher_dashboard():
                     st.error(f"저장 실패: {str(ex)}")
 
     elif menu == "로그아웃":
-
+        st.session_state.page = "login"
+        st.rerun()
+    else:
+        st.warning(f"'{menu}' 메뉴는 현재 마이그레이션/개발 중입니다! 🚧")
 
 def render_student_dashboard():
     st.success(f"👦 {st.session_state.user_info['name']} 학생 환영합니다!")
