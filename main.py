@@ -10,7 +10,7 @@ from gtts import gTTS
 import google.generativeai as genai  # 구글 제미나이 공식 도구
 
 # --- 1. API 키 및 파이어베이스 설정 ---
-GEMINI_API_KEY = "AIzaSyB56UcVY5bysn5xopRRnmTyEEhQg0bp5Rg".strip()
+GEMINI_API_KEY = "AIzaSyC6J57rNiTrvvbWS2fi5Y8_FORqRKC9XtU".strip()
 genai.configure(api_key=GEMINI_API_KEY)
 
 # Firebase 초기화 (중복 방지)
