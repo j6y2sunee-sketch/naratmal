@@ -7,11 +7,11 @@ import io
 import firebase_admin
 from firebase_admin import credentials, db
 from gtts import gTTS
+import google.generativeai as genai
 
 # --- API 키 및 파이어베이스 설정 ---
-# .strip()을 추가하여 눈에 보이지 않는 공백 문자를 강제로 제거합니다.
-GROQ_API_KEY = "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".strip()
-TARGET_URL = "https://api.groq.com/openai/v1/chat/completions".strip()
+GEMINI_API_KEY = "AIzaSyB56UcVY5bysn5xopRRnmTyEEhQg0bp5Rg"
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Firebase가 이미 초기화되었는지 확인 후 초기화 (중복 방지)
 if not firebase_admin._apps:
