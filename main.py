@@ -9,15 +9,16 @@ from firebase_admin import credentials, db
 from gtts import gTTS
 
 # --- API 키 및 파이어베이스 설정 ---
-GROQ_API_KEY = "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"
-TARGET_URL = "[https://api.groq.com/openai/v1/chat/completions](https://api.groq.com/openai/v1/chat/completions)"
+# .strip()을 추가하여 눈에 보이지 않는 공백 문자를 강제로 제거합니다.
+GROQ_API_KEY = "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".strip()
+TARGET_URL = "https://api.groq.com/openai/v1/chat/completions".strip()
 
 # Firebase가 이미 초기화되었는지 확인 후 초기화 (중복 방지)
 if not firebase_admin._apps:
     try:
         cred = credentials.Certificate("naratmal.json") # JSON 파일이 같은 폴더에 있어야 합니다!
         firebase_admin.initialize_app(cred, {
-            'databaseURL': '[https://naratmalssami-ed385-default-rtdb.firebaseio.com](https://naratmalssami-ed385-default-rtdb.firebaseio.com)'
+            'databaseURL': 'https://naratmalssami-ed385-default-rtdb.firebaseio.com'
         })
     except Exception as e:
         st.error(f"Firebase 초기화 에러: {e}")
@@ -246,7 +247,7 @@ def render_teacher_dashboard():
                     st.rerun()
                 st.markdown("</div>", unsafe_allow_html=True)
 
-        # 2. AI 문제 생성 로딩 및 에러 처리 (강화됨)
+        # 2. AI 문제 생성 로딩 및 에러 처리
         elif st.session_state.spelling_subpage == "ai_loading":
             with st.spinner(f"Groq AI가 {st.session_state.ai_grade} 수준 국어 문제를 생성 중입니다..."):
                 prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 JSON으로만 답해. 형식: {{'problems': [{{'audio': '문장', 'answer': '정답'}}]}}"
@@ -261,13 +262,13 @@ def render_teacher_dashboard():
                         "response_format": {"type": "json_object"}
                     }
                     headers = {"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"}
-                    response = requests.post(TARGET_URL, json=payload, headers=headers)
                     
-                    # API 통신 성공 시 (200 OK)
+                    # URL 양 끝의 공백을 완벽히 제거한 TARGET_URL을 사용
+                    response = requests.post(TARGET_URL.strip(), json=payload, headers=headers)
+                    
                     if response.status_code == 200:
                         result = response.json()
                         if 'choices' in result:
-                            # AI가 보낸 응답에서 마크다운(```json) 찌꺼기 제거 처리
                             content = result['choices'][0]['message']['content'].strip()
                             if content.startswith("```json"):
                                 content = content[7:-3].strip()
@@ -280,12 +281,11 @@ def render_teacher_dashboard():
                             st.rerun()
                         else:
                             st.error("API 응답에 'choices' 데이터가 없습니다.")
-                            st.write(result) # 디버깅용 출력
+                            st.write(result) 
                             if st.button("돌아가기", key="btn_back_err"): 
                                 st.session_state.spelling_subpage = "menu"
                                 st.rerun()
                     
-                    # API 통신 실패 시 (무료 사용량 초과, API 키 정지 등)
                     else:
                         err_data = response.json()
                         err_msg = err_data.get("error", {}).get("message", "알 수 없는 에러")
