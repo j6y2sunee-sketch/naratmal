@@ -17,7 +17,7 @@ if not firebase_admin._apps:
     try:
         cred = credentials.Certificate("naratmal.json")
         firebase_admin.initialize_app(cred, {
-            'databaseURL': '[https://naratmalssami-ed385-default-rtdb.firebaseio.com](https://naratmalssami-ed385-default-rtdb.firebaseio.com)'
+            'databaseURL': 'https://naratmalssami-ed385-default-rtdb.firebaseio.com'
         })
     except Exception as e:
         st.error(f"Firebase 초기화 에러: {e}")
@@ -159,9 +159,6 @@ def render_teacher_dashboard():
             index=1 
         )
 
-    # -----------------------------------------------------------------
-    # 홈 & 학생 관리 메뉴
-    # -----------------------------------------------------------------
     if menu == "홈":
         st.markdown('<h2>나랏말싸미 <span style="color:#8D6E63;">교사 대시보드</span>입니다.</h2>', unsafe_allow_html=True)
         st.info("👈 왼쪽 메뉴를 선택하여 학생들의 학습을 관리해주세요.")
@@ -198,9 +195,6 @@ def render_teacher_dashboard():
                     st.info(data.get('ai_report', "버튼을 눌러 분석해보세요."))
             st.divider()
 
-    # -----------------------------------------------------------------
-    # 맞춤법 및 받아쓰기 관리 메뉴
-    # -----------------------------------------------------------------
     elif menu == "맞춤법 및 받아쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[맞춤법 및 받아쓰기 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -221,9 +215,9 @@ def render_teacher_dashboard():
                     st.rerun()
                     
         elif st.session_state.spelling_subpage == "ai_loading":
-            with st.spinner("구글 Gemini AI가 문제를 생성 중입니다..."):
+            with st.spinner("구글 Gemini AI가 문제를 생성 중입니다... (API 키가 정상인지 확인합니다)"):
                 try:
-                    available_model_name = "gemini-1.5-flash" # 기본 안정적 모델 직접 지정
+                    available_model_name = "gemini-1.5-flash"
                     for m in genai.list_models():
                         if 'generateContent' in m.supported_generation_methods:
                             available_model_name = m.name
@@ -233,13 +227,17 @@ def render_teacher_dashboard():
                     prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. JSON 구조로만 답해.\n{{\"problems\": [{{\"audio\": \"문제 문장\", \"answer\": \"정답 단어 또는 문장\"}}]}}"
                     response = model.generate_content(prompt)
                     
-                    # 강화된 파싱 함수 적용
                     data = parse_ai_json(response.text)
                     st.session_state.spelling_problems = data.get('problems', [])
                     st.session_state.spelling_subpage = "ai_edit"
                     st.rerun()
                 except Exception as e:
-                    st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {e})")
+                    # 403 에러 안내를 명확하게 표시하도록 수정했습니다.
+                    if "403" in str(e) or "leaked" in str(e).lower():
+                        st.error("❌ API 키 차단 오류: 구글에서 현재 사용 중인 API 키가 외부에 유출된 것으로 판단하여 사용을 차단했습니다. Google AI Studio에서 새로운 API 키를 발급받아 Secrets에 적용해주세요.")
+                    else:
+                        st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {e})")
+                    
                     if st.button("메뉴로 돌아가기"): st.session_state.spelling_subpage = "menu"; st.rerun()
                     
         elif st.session_state.spelling_subpage in ["ai_edit", "manual"]:
@@ -253,7 +251,6 @@ def render_teacher_dashboard():
             audio_to_play = None
             to_delete = None
             
-            # 리스트가 비어있을 경우 예외 처리
             if not st.session_state.spelling_problems:
                 st.session_state.spelling_problems = [{"audio": "", "answer": ""}]
                 
@@ -274,6 +271,7 @@ def render_teacher_dashboard():
                     if st.button("🔊 듣기", key=f"listen_{i}", use_container_width=True): audio_to_play = st.session_state.spelling_problems[i]["audio"]
                 with c5:
                     if st.button("❌ 삭제", key=f"del_{i}", use_container_width=True): to_delete = i
+            
             if audio_to_play: play_voice_st(audio_to_play)
             if to_delete is not None:
                 st.session_state.spelling_problems.pop(to_delete)
@@ -300,9 +298,6 @@ def render_teacher_dashboard():
                             st.success("✅ 문제 배포 완료!")
                         except Exception as e: st.error(f"저장 에러: {e}")
 
-    # -----------------------------------------------------------------
-    # 문해력 관리 메뉴 
-    # -----------------------------------------------------------------
     elif menu == "문해력 관리":
         st.markdown('<h2><span style="color:#5D4037;">[문해력 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -347,7 +342,6 @@ def render_teacher_dashboard():
                     """
                     response = model.generate_content(prompt)
                     
-                    # 강화된 파싱 함수 적용
                     data = parse_ai_json(response.text)
                     
                     st.session_state.lit_vocab = data.get('vocab', [{"word":"", "mean":""}])
@@ -357,7 +351,10 @@ def render_teacher_dashboard():
                     st.session_state.lit_subpage = "manual"  
                     st.rerun()
                 except Exception as e:
-                    st.error(f"AI 생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {e})")
+                    if "403" in str(e) or "leaked" in str(e).lower():
+                        st.error("❌ API 키 차단 오류: 구글에서 현재 사용 중인 API 키가 외부에 유출된 것으로 판단하여 사용을 차단했습니다. Google AI Studio에서 새로운 API 키를 발급받아 Secrets에 적용해주세요.")
+                    else:
+                        st.error(f"AI 생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {e})")
                     if st.button("뒤로가기"):
                         st.session_state.lit_subpage = "menu"
                         st.rerun()
@@ -429,9 +426,6 @@ def render_teacher_dashboard():
                     except Exception as e:
                         st.error(f"저장 에러: {e}")
 
-    # -----------------------------------------------------------------
-    # 글쓰기 관리 
-    # -----------------------------------------------------------------
     elif menu == "글쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[글쓰기 관리]</span></h2>', unsafe_allow_html=True)
         st.markdown("학생들에게 제시할 글쓰기 주제를 배포합니다.")
@@ -458,13 +452,15 @@ def render_teacher_dashboard():
                         prompt = f"초등학교 {write_grade} 수준에 맞는 재미있고 창의적인 글쓰기 주제 1개를 생성해. JSON 구조로만 답해. 형식: {{\"topic\": \"글쓰기 주제\", \"guideline\": \"가이드라인\"}}"
                         response = model.generate_content(prompt)
                         
-                        # 강화된 파싱 함수 적용
                         res_data = parse_ai_json(response.text)
                         
                         st.session_state.ai_topic = res_data.get('topic', '')
                         st.session_state.ai_guide = res_data.get('guideline', '')
                     except Exception as ex:
-                        st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {ex})")
+                        if "403" in str(ex) or "leaked" in str(ex).lower():
+                            st.error("❌ API 키 차단 오류: 구글에서 현재 사용 중인 API 키가 외부에 유출된 것으로 판단하여 사용을 차단했습니다. Google AI Studio에서 새로운 API 키를 발급받아 Secrets에 적용해주세요.")
+                        else:
+                            st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {ex})")
 
             if "ai_topic" in st.session_state:
                 st.divider()
@@ -488,9 +484,6 @@ def render_teacher_dashboard():
                 else:
                     st.warning("주제를 입력해주세요.")
 
-    # -----------------------------------------------------------------
-    # 게시판 관리 
-    # -----------------------------------------------------------------
     elif menu == "게시판 관리":
         st.markdown('<h2><span style="color:#5D4037;">[글 공유 게시판 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -572,9 +565,6 @@ def render_teacher_dashboard():
                                 db.reference(f"{path}/{pid}/comments").push({"author": st.session_state.user_info['name'], "text": new_comment})
                                 st.rerun()
 
-    # -----------------------------------------------------------------
-    # 문집 관리 
-    # -----------------------------------------------------------------
     elif menu == "문집 관리":
         st.markdown('<h2><span style="color:#5D4037;">[학급 문집 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -653,33 +643,11 @@ def render_teacher_dashboard():
                     type="primary"
                 )
 
-    # -----------------------------------------------------------------
-    # 집현전 관리 자리 확보
-    # -----------------------------------------------------------------
-    elif menu == "집현전 관리":
-        st.markdown('<h2><span style="color:#5D4037;">[집현전(도서관) 관리]</span></h2>', unsafe_allow_html=True)
+    elif menu in ["집현전 관리", "상점 관리", "점수 관리"]:
+        st.markdown(f'<h2><span style="color:#5D4037;">[{menu}]</span></h2>', unsafe_allow_html=True)
         st.divider()
-        st.info("이곳에 집현전 관리 관련 코드를 작성하시면 됩니다. 🚧")
+        st.info("이곳에 관리 코드를 작성하시면 됩니다. 🚧")
 
-    # -----------------------------------------------------------------
-    # 상점 관리 자리 확보
-    # -----------------------------------------------------------------
-    elif menu == "상점 관리":
-        st.markdown('<h2><span style="color:#5D4037;">[상점(리워드) 관리]</span></h2>', unsafe_allow_html=True)
-        st.divider()
-        st.info("이곳에 상점 관리 관련 코드를 작성하시면 됩니다. 🚧")
-
-    # -----------------------------------------------------------------
-    # 점수 관리 자리 확보
-    # -----------------------------------------------------------------
-    elif menu == "점수 관리":
-        st.markdown('<h2><span style="color:#5D4037;">[학생 점수/포인트 관리]</span></h2>', unsafe_allow_html=True)
-        st.divider()
-        st.info("이곳에 점수 관리 관련 코드를 작성하시면 됩니다. 🚧")
-
-    # -----------------------------------------------------------------
-    # 로그아웃
-    # -----------------------------------------------------------------
     elif menu == "로그아웃":
         st.session_state.page = "login"
         st.rerun()
@@ -688,7 +656,6 @@ def render_teacher_dashboard():
 
 
 def render_student_dashboard():
-    """학생 대시보드 임시 화면"""
     st.success(f"👦 {st.session_state.user_info['name']} 학생 환영합니다!")
     if st.button("로그아웃", key="btn_logout_student"):
         st.session_state.page = "login"
