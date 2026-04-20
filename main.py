@@ -66,8 +66,19 @@ if 'user_info' not in st.session_state: st.session_state.user_info = {"name": ""
 # 맞춤법 세션
 if 'spelling_subpage' not in st.session_state: st.session_state.spelling_subpage = "menu"
 if 'spelling_problems' not in st.session_state: st.session_state.spelling_problems = []
-if 'ai_grade' not in st.session_state: st.session_state.ai_grade = "3학년"
-
+if 'ai_grade' not in st.session_state:
+    # 1. 로그인 정보에서 학년 데이터 가져오기 (정보가 없으면 안전하게 '3'으로 임시 설정)
+    if 'user_info' in st.session_state:
+        user_grade = str(st.session_state.user_info.get('grade', '3'))
+    else:
+        user_grade = "3"
+        
+    # 2. 데이터에 '학년'이라는 단어가 포함되어 있는지 확인하고 붙여주기
+    if "학년" not in user_grade:
+        st.session_state.ai_grade = f"{user_grade}학년"
+    else:
+        st.session_state.ai_grade = user_grade
+        
 # 문해력 세션
 if 'lit_subpage' not in st.session_state: st.session_state.lit_subpage = "menu"
 if 'lit_vocab' not in st.session_state: st.session_state.lit_vocab = [{"word": "", "mean": ""}]
@@ -436,59 +447,90 @@ def render_teacher_dashboard():
         st.markdown('<h2><span style="color:#5D4037;">[글쓰기 관리]</span></h2>', unsafe_allow_html=True)
         st.markdown("학생들에게 제시할 글쓰기 주제를 배포합니다.")
         st.divider()
-        
-        tab1, tab2 = st.tabs(["🤖 AI 주제 추천", "✍️ 직접 제시"])
+
         u = st.session_state.user_info
         db_path = f"writing_tasks/{u['school']}/{u['grade']}/{u['class']}"
 
-        with tab1:
-            st.subheader("AI 주제 추천")
-            write_grade = st.selectbox("학년 수준", [f"{i}학년" for i in range(1, 7)], index=2, key="write_grade_select")
-            
-            if st.button("주제 생성 시작", type="primary"):
-                with st.spinner("AI가 주제를 고민 중..."):
-                    try:
-                        available_model_name = "gemini-1.5-flash"
-                        for m in genai.list_models():
-                            if 'generateContent' in m.supported_generation_methods:
-                                available_model_name = m.name
-                                if "flash" in m.name or "pro" in m.name: break
-                        
-                        model = genai.GenerativeModel(available_model_name)
-                        prompt = f"초등학교 {write_grade} 수준에 맞는 재미있고 창의적인 글쓰기 주제 1개를 생성해. JSON 구조로만 답해. 형식: {{\"topic\": \"글쓰기 주제\", \"guideline\": \"가이드라인\"}}"
-                        response = model.generate_content(prompt)
-                        
-                        res_data = parse_ai_json(response.text)
-                        
-                        st.session_state.ai_topic = res_data.get('topic', '')
-                        st.session_state.ai_guide = res_data.get('guideline', '')
-                    except Exception as ex:
-                        if "403" in str(ex) or "leaked" in str(ex).lower():
-                            st.error("❌ API 키 차단 오류: 구글에서 현재 사용 중인 API 키가 외부에 유출된 것으로 판단하여 사용을 차단했습니다. Google AI Studio에서 새로운 API 키를 발급받아 Secrets에 적용해주세요.")
-                        else:
-                            st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {ex})")
+        # 💡 추가된 기능: 현재 배포된 주제를 화면 상단에 보여주어 관리 편의성 증대
+        current_task = db.reference(db_path).get()
+        if current_task and isinstance(current_task, dict):
+            with st.container(border=True):
+                st.markdown("#### 📢 현재 배포된 글쓰기 주제")
+                st.info(f"**주제:** {current_task.get('topic', '없음')}")
+                st.caption(f"**가이드라인:** {current_task.get('guideline', '없음')}")
+        else:
+            st.info("현재 배포된 글쓰기 주제가 없습니다. 새로운 주제를 배포해주세요.")
 
-            if "ai_topic" in st.session_state:
-                st.divider()
-                edited_topic = st.text_area("주제 (수정 가능)", value=st.session_state.ai_topic)
-                edited_guide = st.text_area("가이드라인 (수정 가능)", value=st.session_state.ai_guide, height=100)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("### 📝 새로운 주제 배포하기")
+        
+        # 💡 UI 개선: 탭 대신 라디오 버튼을 사용하여 화면 전환을 부드럽게 구성
+        method = st.radio("주제 생성 방식 선택", ["🤖 AI 주제 추천", "✍️ 직접 제시"], horizontal=True)
+
+        if method == "🤖 AI 주제 추천":
+            with st.container(border=True):
+                st.markdown("#### 🤖 AI에게 주제 추천받기")
                 
-                if st.button("💾 AI 생성 문제 배포하기"):
-                    db.reference(db_path).set({"topic": edited_topic, "guideline": edited_guide, "created_at": str(time.time())})
-                    st.success("✅ 문제 배포가 완료되었습니다!")
-                    del st.session_state.ai_topic
+                # 💡 로그인 정보 기반 기본 학년 자동 설정
+                default_grade = str(u.get('grade', '3'))
+                default_index = int(default_grade.replace("학년", "")) - 1 if default_grade.replace("학년", "").isdigit() else 2
+                
+                c1, c2 = st.columns([3, 1])
+                write_grade = c1.selectbox("대상 학년 수준", [f"{i}학년" for i in range(1, 7)], index=default_index, key="write_grade_select")
+                
+                if c2.button("✨ AI 생성 시작", use_container_width=True, type="primary"):
+                    with st.spinner("AI가 창의적인 주제를 고민 중입니다..."):
+                        try:
+                            available_model_name = "gemini-1.5-flash"
+                            for m in genai.list_models():
+                                if 'generateContent' in m.supported_generation_methods:
+                                    if "flash" in m.name or "pro" in m.name:
+                                        available_model_name = m.name
+                                        break
+                                        
+                            model = genai.GenerativeModel(available_model_name)
+                            prompt = f"초등학교 {write_grade} 수준에 맞는 재미있고 창의적인 글쓰기 주제 1개를 생성해. JSON 구조로만 답해. 형식: {{\"topic\": \"글쓰기 주제\", \"guideline\": \"가이드라인\"}}"
+                            response = model.generate_content(prompt)
+                            
+                            res_data = parse_ai_json(response.text)
+                            st.session_state.ai_topic = res_data.get('topic', '')
+                            st.session_state.ai_guide = res_data.get('guideline', '')
+                        except Exception as ex:
+                            if "403" in str(ex) or "leaked" in str(ex).lower():
+                                st.error("❌ API 키 차단 오류: 구글에서 현재 사용 중인 API 키가 외부에 유출된 것으로 판단하여 사용을 차단했습니다. 새 키를 발급받아주세요.")
+                            else:
+                                st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {ex})")
 
-        with tab2:
-            st.subheader("직접 제시")
-            manual_topic = st.text_area("주제", placeholder="학생들에게 제시할 주제를 입력하세요.", key="man_topic")
-            manual_guide = st.text_area("가이드라인", placeholder="글쓰기 가이드라인을 입력하세요.", height=100, key="man_guide")
-            
-            if st.button("💾 직접 배포하기"):
-                if manual_topic:
-                    db.reference(db_path).set({"topic": manual_topic, "guideline": manual_guide, "created_at": str(time.time())})
-                    st.success("✅ 문제 배포가 완료되었습니다!")
-                else:
-                    st.warning("주제를 입력해주세요.")
+                # AI가 주제를 생성했을 때만 아래 폼 보이기
+                if "ai_topic" in st.session_state:
+                    st.divider()
+                    st.markdown("#### 🛠️ 생성된 주제 확인 및 배포")
+                    # 💡 짧은 '주제'는 text_input으로 변경하여 공간 확보 및 UI 개선
+                    edited_topic = st.text_input("주제 (수정 가능)", value=st.session_state.ai_topic)
+                    edited_guide = st.text_area("가이드라인 (수정 가능)", value=st.session_state.ai_guide, height=100)
+                    
+                    if st.button("💾 이 주제로 배포하기", type="primary", use_container_width=True):
+                        db.reference(db_path).set({"topic": edited_topic, "guideline": edited_guide, "created_at": str(time.time())})
+                        st.success("✅ 문제 배포가 완료되었습니다!")
+                        del st.session_state.ai_topic
+                        time.sleep(1) # 안내 메시지 보여준 후
+                        st.rerun()    # 화면 새로고침하여 상단 '현재 배포된 주제' 갱신
+
+        elif method == "✍️ 직접 제시":
+            with st.container(border=True):
+                st.markdown("#### ✍️ 선생님이 직접 주제 입력하기")
+                # 💡 주제는 text_input, 가이드라인은 text_area로 구분하여 깔끔하게 배치
+                manual_topic = st.text_input("주제", placeholder="학생들에게 제시할 주제를 입력하세요.", key="man_topic")
+                manual_guide = st.text_area("가이드라인", placeholder="글쓰기 가이드라인을 입력하세요.", height=150, key="man_guide")
+                
+                if st.button("💾 직접 배포하기", type="primary", use_container_width=True):
+                    if manual_topic:
+                        db.reference(db_path).set({"topic": manual_topic, "guideline": manual_guide, "created_at": str(time.time())})
+                        st.success("✅ 문제 배포가 완료되었습니다!")
+                        time.sleep(1)
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ 배포할 주제를 입력해주세요.")
 
     elif menu == "게시판 관리":
         st.markdown('<h2><span style="color:#5D4037;">[글 공유 게시판 관리]</span></h2>', unsafe_allow_html=True)
