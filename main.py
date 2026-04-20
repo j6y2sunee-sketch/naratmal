@@ -135,7 +135,7 @@ def render_teacher_dashboard():
             with st.spinner(f"Gemini AI가 문제를 생성 중입니다..."):
                 try:
                     # 💡 해결 포인트: 'models/gemini-1.5-flash' 대신 이름만 사용 시도
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    model = genai.GenerativeModel('gemini-pro')
                     prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. JSON 형식으로만 답해. 형식: {{'problems': [{{'audio': '문장', 'answer': '정답'}}]}}"
                     
                     response = model.generate_content(prompt)
