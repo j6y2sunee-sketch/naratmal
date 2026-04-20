@@ -17,7 +17,7 @@ if not firebase_admin._apps:
     try:
         cred = credentials.Certificate("naratmal.json")
         firebase_admin.initialize_app(cred, {
-            'databaseURL': 'https://naratmalssami-ed385-default-rtdb.firebaseio.com'
+            'databaseURL': '[https://naratmalssami-ed385-default-rtdb.firebaseio.com](https://naratmalssami-ed385-default-rtdb.firebaseio.com)'
         })
     except Exception as e:
         st.error(f"Firebase 초기화 에러: {e}")
@@ -34,32 +34,54 @@ def play_voice_st(text):
     except Exception as e:
         st.error(f"음성 재생 오류: {e}")
 
-# --- 안전한 딕셔너리 변환 함수 (새 기능 데이터 로드용) ---
+# --- 안전한 딕셔너리 변환 함수 ---
 def safe_dict(data):
     return data if isinstance(data, dict) else {}
+
+# --- AI 답변 정제 함수 (에러 방지용 안전장치) ---
+def parse_ai_json(response_text):
+    text = response_text.strip()
+    # 마크다운 코드 블록(```json 등) 제거
+    if text.startswith("```"):
+        lines = text.split('\n')
+        if len(lines) > 2:
+            text = '\n'.join(lines[1:-1])
+    # 중괄호 {} 사이의 순수 JSON 텍스트만 추출
+    start_idx = text.find('{')
+    end_idx = text.rfind('}') + 1
+    if start_idx != -1 and end_idx != 0:
+        text = text[start_idx:end_idx]
+    return json.loads(text)
+
 
 # ==========================================
 # 1. 페이지 및 기본 설정
 # ==========================================
 st.set_page_config(page_title="나랏말싸미", layout="wide")
 
-# 세션 상태(Session State) 초기화
+# 세션 상태 초기화
 if 'page' not in st.session_state: st.session_state.page = "login"
 if 'user_info' not in st.session_state: st.session_state.user_info = {"name": "", "role": "", "school": "", "grade": "", "class": ""}
 
-# (맞춤법 관련 세션)
+# 맞춤법 세션
 if 'spelling_subpage' not in st.session_state: st.session_state.spelling_subpage = "menu"
 if 'spelling_problems' not in st.session_state: st.session_state.spelling_problems = []
 if 'ai_grade' not in st.session_state: st.session_state.ai_grade = "3학년"
 
-# (문해력 관련 세션 - 새롭게 추가된 부분)
+# 문해력 세션
 if 'lit_subpage' not in st.session_state: st.session_state.lit_subpage = "menu"
 if 'lit_vocab' not in st.session_state: st.session_state.lit_vocab = [{"word": "", "mean": ""}]
 if 'lit_passage' not in st.session_state: st.session_state.lit_passage = ""
 if 'lit_questions' not in st.session_state: st.session_state.lit_questions = [{"q": "", "a": ""}]
 if 'lit_grade' not in st.session_state: st.session_state.lit_grade = "3학년"
 
-# 파이어베이스를 대신할 가상 데이터베이스 (테스트용)
+# 추가된 관리 메뉴 세션
+if "board_mode" not in st.session_state: st.session_state.board_mode = "menu"
+if "anthology_mode" not in st.session_state: st.session_state.anthology_mode = "menu"
+if "filter_type" not in st.session_state: st.session_state.filter_type = ""
+if "filter_value" not in st.session_state: st.session_state.filter_value = ""
+
+# 가상 데이터베이스
 if 'mock_users' not in st.session_state:
     st.session_state.mock_users = {
         "uid_001": {"role": "학생", "school": "테스트초", "grade": "3", "class": "1", "name": "김꿈틀", "scores": {"total": 420, "spelling": 100, "literacy": 90, "writing": 80, "jiphyeon": 150}, "ai_report": "버튼을 눌러 현재 학습 데이터를 분석해보세요."},
@@ -67,11 +89,6 @@ if 'mock_users' not in st.session_state:
         "uid_003": {"role": "학생", "school": "테스트초", "grade": "3", "class": "1", "name": "박나무", "scores": {"total": 390, "spelling": 90, "literacy": 80, "writing": 100, "jiphyeon": 120}, "ai_report": "버튼을 눌러 현재 학습 데이터를 분석해보세요."}
     }
 
-# (새로운 관리 메뉴들을 위한 세션)
-if "board_mode" not in st.session_state: st.session_state.board_mode = "menu"
-if "anthology_mode" not in st.session_state: st.session_state.anthology_mode = "menu"
-if "filter_type" not in st.session_state: st.session_state.filter_type = ""
-if "filter_value" not in st.session_state: st.session_state.filter_value = ""
 
 # ==========================================
 # 2. 화면 구성 함수들
@@ -148,6 +165,7 @@ def render_teacher_dashboard():
     if menu == "홈":
         st.markdown('<h2>나랏말싸미 <span style="color:#8D6E63;">교사 대시보드</span>입니다.</h2>', unsafe_allow_html=True)
         st.info("👈 왼쪽 메뉴를 선택하여 학생들의 학습을 관리해주세요.")
+        
     elif menu == "학생 관리":
         st.markdown('<h2><span style="color:#5D4037;">[학생 관리]</span></h2>', unsafe_allow_html=True)
         st.divider()
@@ -201,10 +219,11 @@ def render_teacher_dashboard():
                     st.session_state.spelling_problems = [{"audio": "", "answer": ""} for _ in range(10)]
                     st.session_state.spelling_subpage = "manual"
                     st.rerun()
+                    
         elif st.session_state.spelling_subpage == "ai_loading":
-            with st.spinner(f"구글 Gemini AI가 문제를 생성 중입니다..."):
+            with st.spinner("구글 Gemini AI가 문제를 생성 중입니다..."):
                 try:
-                    available_model_name = "models/gemini-pro"
+                    available_model_name = "gemini-1.5-flash" # 기본 안정적 모델 직접 지정
                     for m in genai.list_models():
                         if 'generateContent' in m.supported_generation_methods:
                             available_model_name = m.name
@@ -214,18 +233,15 @@ def render_teacher_dashboard():
                     prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. JSON 구조로만 답해.\n{{\"problems\": [{{\"audio\": \"문제 문장\", \"answer\": \"정답 단어 또는 문장\"}}]}}"
                     response = model.generate_content(prompt)
                     
-                    content = response.text.replace("```json", "").replace("```", "").strip()
-                    s_idx = content.find('{')
-                    e_idx = content.rfind('}') + 1
-                    if s_idx != -1 and e_idx != 0: content = content[s_idx:e_idx]
-                        
-                    data = json.loads(content)
+                    # 강화된 파싱 함수 적용
+                    data = parse_ai_json(response.text)
                     st.session_state.spelling_problems = data.get('problems', [])
                     st.session_state.spelling_subpage = "ai_edit"
                     st.rerun()
                 except Exception as e:
-                    st.error("생성 오류 발생")
+                    st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {e})")
                     if st.button("메뉴로 돌아가기"): st.session_state.spelling_subpage = "menu"; st.rerun()
+                    
         elif st.session_state.spelling_subpage in ["ai_edit", "manual"]:
             if st.button("⬅️ 뒤로가기"): st.session_state.spelling_subpage = "menu"; st.rerun()
             st.divider()
@@ -236,6 +252,11 @@ def render_teacher_dashboard():
             
             audio_to_play = None
             to_delete = None
+            
+            # 리스트가 비어있을 경우 예외 처리
+            if not st.session_state.spelling_problems:
+                st.session_state.spelling_problems = [{"audio": "", "answer": ""}]
+                
             for i, prob in enumerate(st.session_state.spelling_problems):
                 c1, c2, c3, c4, c5 = st.columns([0.6, 3.5, 3.5, 1.2, 1.2])
                 with c1: st.write(f"<div style='padding-top:7px;'><b>{i+1}번</b></div>", unsafe_allow_html=True)
@@ -303,10 +324,11 @@ def render_teacher_dashboard():
                     st.session_state.lit_questions = [{"q": "", "a": ""}]
                     st.session_state.lit_subpage = "manual"
                     st.rerun()
+                    
         elif st.session_state.lit_subpage == "ai_loading":
             with st.spinner(f"구글 Gemini AI가 {st.session_state.lit_grade} 수준 문해력 지문과 문제를 생성 중입니다..."):
                 try:
-                    available_model_name = "models/gemini-pro"
+                    available_model_name = "gemini-1.5-flash"
                     for m in genai.list_models():
                         if 'generateContent' in m.supported_generation_methods:
                             available_model_name = m.name
@@ -325,13 +347,8 @@ def render_teacher_dashboard():
                     """
                     response = model.generate_content(prompt)
                     
-                    content = response.text.replace("```json", "").replace("```", "").strip()
-                    start_idx = content.find('{')
-                    end_idx = content.rfind('}') + 1
-                    if start_idx != -1 and end_idx != 0:
-                        content = content[start_idx:end_idx]
-                    
-                    data = json.loads(content)
+                    # 강화된 파싱 함수 적용
+                    data = parse_ai_json(response.text)
                     
                     st.session_state.lit_vocab = data.get('vocab', [{"word":"", "mean":""}])
                     st.session_state.lit_passage = data.get('passage', "")
@@ -340,10 +357,11 @@ def render_teacher_dashboard():
                     st.session_state.lit_subpage = "manual"  
                     st.rerun()
                 except Exception as e:
-                    st.error(f"AI 생성 오류가 발생했습니다: {e}")
+                    st.error(f"AI 생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {e})")
                     if st.button("뒤로가기"):
                         st.session_state.lit_subpage = "menu"
                         st.rerun()
+                        
         elif st.session_state.lit_subpage == "manual":
             if st.button("⬅️ 뒤로가기", key="lit_back"):
                 st.session_state.lit_subpage = "menu"
@@ -412,7 +430,7 @@ def render_teacher_dashboard():
                         st.error(f"저장 에러: {e}")
 
     # -----------------------------------------------------------------
-    # 글쓰기 관리 (NEW!)
+    # 글쓰기 관리 
     # -----------------------------------------------------------------
     elif menu == "글쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[글쓰기 관리]</span></h2>', unsafe_allow_html=True)
@@ -430,8 +448,7 @@ def render_teacher_dashboard():
             if st.button("주제 생성 시작", type="primary"):
                 with st.spinner("AI가 주제를 고민 중..."):
                     try:
-                        # 선생님의 기존 Gemini 설정을 사용하여 주제 생성
-                        available_model_name = "models/gemini-pro"
+                        available_model_name = "gemini-1.5-flash"
                         for m in genai.list_models():
                             if 'generateContent' in m.supported_generation_methods:
                                 available_model_name = m.name
@@ -441,16 +458,13 @@ def render_teacher_dashboard():
                         prompt = f"초등학교 {write_grade} 수준에 맞는 재미있고 창의적인 글쓰기 주제 1개를 생성해. JSON 구조로만 답해. 형식: {{\"topic\": \"글쓰기 주제\", \"guideline\": \"가이드라인\"}}"
                         response = model.generate_content(prompt)
                         
-                        content = response.text.replace("```json", "").replace("```", "").strip()
-                        s_idx = content.find('{')
-                        e_idx = content.rfind('}') + 1
-                        if s_idx != -1 and e_idx != 0: content = content[s_idx:e_idx]
+                        # 강화된 파싱 함수 적용
+                        res_data = parse_ai_json(response.text)
                         
-                        res_data = json.loads(content)
                         st.session_state.ai_topic = res_data.get('topic', '')
                         st.session_state.ai_guide = res_data.get('guideline', '')
                     except Exception as ex:
-                        st.error(f"생성 오류가 발생했습니다: {ex}")
+                        st.error(f"생성 중 오류가 발생했습니다. 다시 시도해주세요.\n(오류 내용: {ex})")
 
             if "ai_topic" in st.session_state:
                 st.divider()
@@ -475,7 +489,7 @@ def render_teacher_dashboard():
                     st.warning("주제를 입력해주세요.")
 
     # -----------------------------------------------------------------
-    # 게시판 관리 (NEW!)
+    # 게시판 관리 
     # -----------------------------------------------------------------
     elif menu == "게시판 관리":
         st.markdown('<h2><span style="color:#5D4037;">[글 공유 게시판 관리]</span></h2>', unsafe_allow_html=True)
@@ -559,7 +573,7 @@ def render_teacher_dashboard():
                                 st.rerun()
 
     # -----------------------------------------------------------------
-    # 문집 관리 (NEW!)
+    # 문집 관리 
     # -----------------------------------------------------------------
     elif menu == "문집 관리":
         st.markdown('<h2><span style="color:#5D4037;">[학급 문집 관리]</span></h2>', unsafe_allow_html=True)
