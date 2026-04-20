@@ -9,7 +9,7 @@ from firebase_admin import credentials, db
 from gtts import gTTS
 
 # --- 1. API 키 및 파이어베이스 설정 ---
-# 선생님께서 새로 발급받으신 구글 API 키입니다. (구글 도구(SDK) 없이 이 키만으로 직접 통신합니다)
+# 선생님께서 새로 발급받으신 구글 API 키입니다. (구글 도구 없이 이 키만으로 직접 통신)
 GEMINI_API_KEY = "AIzaSyB56UcVY5bysn5xopRRnmTyEEhQg0bp5Rg".strip()
 
 # Firebase가 이미 초기화되었는지 확인 후 초기화 (중복 방지)
@@ -215,7 +215,7 @@ def render_teacher_dashboard():
             st.divider()
 
     # -----------------------------------------------------------------
-    # 맞춤법 및 받아쓰기 관리 메뉴 (직접 REST API 호출 방식 적용 - 에러 원천 차단)
+    # 맞춤법 및 받아쓰기 관리 메뉴 (직접 REST API 호출 방식 적용 - URL/옵션 완벽 수정)
     # -----------------------------------------------------------------
     elif menu == "맞춤법 및 받아쓰기 관리":
         st.markdown('<h2><span style="color:#5D4037;">[맞춤법 및 받아쓰기 관리]</span></h2>', unsafe_allow_html=True)
@@ -252,14 +252,14 @@ def render_teacher_dashboard():
                 prompt = f"초등학교 {st.session_state.ai_grade} 수준 국어 받아쓰기 문제 10개를 생성해. 반드시 자연스러운 한국어(표준어)로 작성해. 결과는 다른 말은 절대 하지 말고 오직 아래 JSON 구조로만 답해.\n{{\"problems\": [{{\"audio\": \"문제 문장\", \"answer\": \"정답 단어 또는 문장\"}}]}}"
                 
                 try:
-                    # 💡 구글 도구(SDK)를 무시하고 가장 확실한 REST API URL로 직접 통신!
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+                    # 💡 주소를 확실하게 'gemini-pro'로 변경했습니다!
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={GEMINI_API_KEY}"
                     
                     payload = {
                         "contents": [{"parts": [{"text": prompt}]}],
                         "generationConfig": {
-                            "temperature": 0.2,
-                            "responseMimeType": "application/json"  # 제미나이가 무조건 JSON만 뱉어내도록 강제
+                            "temperature": 0.2
+                            # gemini-pro는 responseMimeType을 지원하지 않아 여기서 삭제했습니다.
                         }
                     }
                     
@@ -271,6 +271,13 @@ def render_teacher_dashboard():
                         # 데이터 파싱
                         content = res_data['candidates'][0]['content']['parts'][0]['text']
                         
+                        # 💡 AI가 앞뒤에 불필요한 설명을 덧붙였을 경우 순수 JSON만 추출해내는 안전장치
+                        content = content.replace("```json", "").replace("```", "").strip()
+                        start_idx = content.find('{')
+                        end_idx = content.rfind('}') + 1
+                        if start_idx != -1 and end_idx != 0:
+                            content = content[start_idx:end_idx]
+                            
                         data = json.loads(content)
                         st.session_state.spelling_problems = data.get('problems', [])
                         st.session_state.spelling_subpage = "ai_edit"
